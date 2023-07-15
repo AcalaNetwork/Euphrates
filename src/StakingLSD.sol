@@ -34,8 +34,6 @@ contract StakingLSD is StakingCommon {
 
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
-    constructor() {}
-
     function convertInfos(uint256 poolId) public view returns (ConvertInfo memory) {
         return _convertInfos[poolId];
     }

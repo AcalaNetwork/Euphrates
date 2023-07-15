@@ -8,8 +8,6 @@ import "./PoolOperationPausable.sol";
 import "./Staking.sol";
 
 contract StakingCommon is Ownable, Pausable, Staking, PoolOperationPausable {
-    constructor() {}
-
     function pause() external onlyOwner {
         _pause();
     }

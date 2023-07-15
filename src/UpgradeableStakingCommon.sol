@@ -9,11 +9,6 @@ import "./PoolOperationPausable.sol";
 import "./Staking.sol";
 
 contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, Staking, PoolOperationPausable {
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     function initialize() public initializer {
         __Pausable_init();
         __Ownable_init();
