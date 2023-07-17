@@ -6,9 +6,9 @@ import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IStaking {
-    event ClaimReward(uint256 poolId, IERC20 rewardType, address account, uint256 amount);
-    event Unstaked(uint256 poolId, address account, uint256 amount);
-    event Staked(uint256 poolId, address account, uint256 amount);
+    event ClaimReward(address indexed account, uint256 poolId, IERC20 indexed rewardType, uint256 amount);
+    event Unstake(address indexed account, uint256 poolId, uint256 amount);
+    event Stake(address indexed account, uint256 poolId, uint256 amount);
 
     function shareTypes(uint256 poolId) external view returns (IERC20);
     function totalShares(uint256 poolId) external view returns (uint256);

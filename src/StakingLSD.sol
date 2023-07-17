@@ -107,7 +107,7 @@ contract StakingLSD is StakingCommon {
         _totalShares[poolId] = _totalShares[poolId].add(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(amount);
 
-        emit Staked(poolId, msg.sender, amount);
+        emit Stake(msg.sender, poolId, amount);
 
         return true;
     }
@@ -138,7 +138,7 @@ contract StakingLSD is StakingCommon {
             shareType.safeTransfer(msg.sender, amount);
         }
 
-        emit Unstaked(poolId, msg.sender, amount);
+        emit Unstake(msg.sender, poolId, amount);
 
         return true;
     }

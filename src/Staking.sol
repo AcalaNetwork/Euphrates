@@ -10,7 +10,7 @@ abstract contract Staking is IStaking {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    event RewardRuleUpdated(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime);
+    event RewardRuleUpdate(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime);
     event NewPool(uint256 poolId, IERC20 shareType);
     event RewardsDeductionRateSet(uint256 poolId, uint256 rate);
 
@@ -185,7 +185,7 @@ abstract contract Staking is IStaking {
         rewardRule.endTime = block.timestamp.add(rewardDuration);
         rewardRule.lastAccumulatedTime = block.timestamp;
 
-        emit RewardRuleUpdated(poolId, rewardType, rewardRule.rewardRate, rewardRule.endTime);
+        emit RewardRuleUpdate(poolId, rewardType, rewardRule.rewardRate, rewardRule.endTime);
     }
 
     function stake(uint256 poolId, uint256 amount)
@@ -204,7 +204,7 @@ abstract contract Staking is IStaking {
         _totalShares[poolId] = _totalShares[poolId].add(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(amount);
 
-        emit Staked(poolId, msg.sender, amount);
+        emit Stake(msg.sender, poolId, amount);
 
         return true;
     }
@@ -218,14 +218,15 @@ abstract contract Staking is IStaking {
     {
         require(amount > 0, "cannot unstake 0");
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) != address(0), "Invalid pool");
+        require(address(shareType) != address(0), "invalid pool");
+        require(shares(poolId, msg.sender) >= amount, "share not enough");
 
         _totalShares[poolId] = _totalShares[poolId].sub(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].sub(amount);
 
         shareType.safeTransfer(msg.sender, amount);
 
-        emit Unstaked(poolId, msg.sender, amount);
+        emit Unstake(msg.sender, poolId, amount);
 
         return true;
     }
@@ -244,13 +245,17 @@ abstract contract Staking is IStaking {
 
                 if (deduction > 0) {
                     RewardRule storage rewardRule = _rewardRules[poolId][types[i]];
-                    uint256 remainingTime = rewardRule.endTime.sub(rewardRule.lastAccumulatedTime);
-                    uint256 addRewardRate = deduction.div(remainingTime);
-                    rewardRule.rewardRate = rewardRule.rewardRate.add(addRewardRate);
+                    uint256 totalShare = totalShares(poolId);
+
+                    if (totalShare != 0) {
+                        // redistribute the deduction to all stakers
+                        uint256 addedAccumulatedRate = deduction.mul(1e18).div(totalShare);
+                        rewardRule.rewardRateAccumulated = rewardRule.rewardRateAccumulated.add(addedAccumulatedRate);
+                    }
                 }
 
                 types[i].safeTransfer(msg.sender, remainingReward);
-                emit ClaimReward(poolId, types[i], msg.sender, remainingReward);
+                emit ClaimReward(msg.sender, poolId, types[i], remainingReward);
             }
         }
 
