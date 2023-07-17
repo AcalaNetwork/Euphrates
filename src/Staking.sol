@@ -129,7 +129,7 @@ abstract contract Staking is IStaking {
     }
 
     function addPool(IERC20 shareType) public virtual {
-        require(address(shareType) != address(0), "0 address not allowed");
+        require(address(shareType) != address(0), "share token is zero address");
 
         uint256 poolId = poolIndex();
         _shareTypes[poolId] = shareType;
@@ -139,7 +139,7 @@ abstract contract Staking is IStaking {
     }
 
     function setRewardsDeductionRate(uint256 poolId, uint256 rate) public virtual {
-        require(address(shareTypes(poolId)) != address(0), "Invalid pool");
+        require(address(shareTypes(poolId)) != address(0), "invalid pool");
         require(rate <= 1e18, "invalid rate");
 
         _rewardsDeductionRates[poolId] = rate;
@@ -151,8 +151,9 @@ abstract contract Staking is IStaking {
         virtual
         updateRewards(poolId, address(0))
     {
-        require(address(rewardType) != address(0), "not allowed");
+        require(address(rewardType) != address(0), "reward token is zero address");
         require(address(shareTypes(poolId)) != address(0), "pool must be existed");
+        require(rewardDuration != 0, "zero reward duration");
 
         IERC20[] memory types = rewardTypes(poolId);
         bool isNew = true;
@@ -171,13 +172,14 @@ abstract contract Staking is IStaking {
 
         RewardRule storage rewardRule = _rewardRules[poolId][rewardType];
 
-        // start a new reward period
         if (block.timestamp >= rewardRule.endTime) {
+            // start a new reward period
             rewardRule.rewardRate = rewardAmountAdd.div(rewardDuration);
         } else {
+            // overwrite duration and increase reward amount, allow zero reward amount added
             uint256 remainingTime = rewardRule.endTime.sub(block.timestamp);
             uint256 leftover = remainingTime.mul(rewardRule.rewardRate);
-            rewardRule.rewardRate = rewardAmountAdd.add(leftover).div(rewardDuration);
+            rewardRule.rewardRate = leftover.add(rewardAmountAdd).div(rewardDuration);
         }
 
         rewardRule.endTime = block.timestamp.add(rewardDuration);
@@ -193,9 +195,9 @@ abstract contract Staking is IStaking {
         updateRewards(poolId, msg.sender)
         returns (bool)
     {
-        require(amount > 0, "Cannot stake 0");
+        require(amount > 0, "cannot stake 0");
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) != address(0), "Invalid pool");
+        require(address(shareType) != address(0), "invalid pool");
 
         shareType.safeTransferFrom(msg.sender, address(this), amount);
 
@@ -214,7 +216,7 @@ abstract contract Staking is IStaking {
         updateRewards(poolId, msg.sender)
         returns (bool)
     {
-        require(amount > 0, "Cannot unstake 0");
+        require(amount > 0, "cannot unstake 0");
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "Invalid pool");
 

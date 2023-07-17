@@ -5,6 +5,7 @@ import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "./IHoma.sol";
+import "./IMockLiquidCrowdloan.sol";
 import "./IStableAsset.sol";
 import "./StakingCommon.sol";
 
@@ -45,7 +46,7 @@ contract StakingLSD is StakingCommon {
         ConvertInfo storage convert = _convertInfos[poolId];
         require(address(convert.convertedShareType) == address(0), "Already converted");
 
-        // TODO: call the LIQUID_CROWDLOAN to convert LcDOT to DOT;
+        // TODO: approve LcDOT to LIQUID_CROWDLOAN and call redeem to convert LcDOT to DOT;
         uint256 amount = totalShares(poolId);
 
         if (convertType == ConvertType.Lcdot2Ldot) {
