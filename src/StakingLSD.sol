@@ -5,7 +5,7 @@ import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "./IHoma.sol";
-import "./IMockLiquidCrowdloan.sol";
+import "./ILiquidCrowdloan.sol";
 import "./IStableAsset.sol";
 import "./StakingCommon.sol";
 
@@ -25,13 +25,46 @@ contract StakingLSD is StakingCommon {
         Lcdot2Tdot
     }
 
-    address public constant DOT = 0x0000000000000000000100000000000000000002;
-    address public constant LCDOT = 0x000000000000000000040000000000000000000d;
-    address public constant LDOT = 0x0000000000000000000100000000000000000003;
-    address public constant TDOT = 0x0000000000000000000300000000000000000000;
-    address public constant HOMA = 0x0000000000000000000000000000000000000805;
-    address public constant STABLE_ASSET = 0x0000000000000000000000000000000000000804;
-    address public constant LIQUID_CROWDLOAN = 0x0000000000000000000100000000000000000018; // TODO: did not existed, need config
+    // address public constant DOT = 0x0000000000000000000100000000000000000002;
+    // address public constant LCDOT = 0x000000000000000000040000000000000000000d;
+    // address public constant LDOT = 0x0000000000000000000100000000000000000003;
+    // address public constant TDOT = 0x0000000000000000000300000000000000000000;
+    // address public constant HOMA = 0x0000000000000000000000000000000000000805;
+    // address public constant STABLE_ASSET = 0x0000000000000000000000000000000000000804;
+    // address public constant LIQUID_CROWDLOAN = 0x0000000000000000000100000000000000000018; // TODO: did not existed, need config
+
+    address public immutable DOT;
+    address public immutable LCDOT;
+    address public immutable LDOT;
+    address public immutable TDOT;
+    address public immutable HOMA;
+    address public immutable STABLE_ASSET;
+    address public immutable LIQUID_CROWDLOAN;
+
+    constructor(
+        address dot,
+        address lcdot,
+        address ldot,
+        address tdot,
+        address homa,
+        address stableAsset,
+        address liquidCrowdloan
+    ) {
+        require(dot != address(0), "dot address is zero");
+        require(lcdot != address(0), "lcDOT address is zero");
+        require(ldot != address(0), "lDOT address is zero");
+        require(tdot != address(0), "tDOT address is zero");
+        require(homa != address(0), "homa address is zero");
+        require(stableAsset != address(0), "stableAsset address is zero");
+        require(liquidCrowdloan != address(0), "liquidCrowdloan address is zero");
+        DOT = dot;
+        LCDOT = lcdot;
+        LDOT = ldot;
+        TDOT = tdot;
+        HOMA = homa;
+        STABLE_ASSET = stableAsset;
+        LIQUID_CROWDLOAN = liquidCrowdloan;
+    }
 
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
@@ -46,8 +79,10 @@ contract StakingLSD is StakingCommon {
         ConvertInfo storage convert = _convertInfos[poolId];
         require(address(convert.convertedShareType) == address(0), "Already converted");
 
-        // TODO: approve LcDOT to LIQUID_CROWDLOAN and call redeem to convert LcDOT to DOT;
         uint256 amount = totalShares(poolId);
+
+        // redeem LcDOT to DOT at 1:1
+        ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
 
         if (convertType == ConvertType.Lcdot2Ldot) {
             uint256 exchangeRate = IHoma(HOMA).getExchangeRate();
@@ -65,6 +100,12 @@ contract StakingLSD is StakingCommon {
             convert.convertedExchangeRate = exchangeRate;
         } else if (convertType == ConvertType.Lcdot2Tdot) {
             uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
+
+            // some params is deadcode, Stable Asset of tDOT on Acala:
+            // tDOT pool id: 0
+            // assets length: 2
+            // asset index of DOT: 0
+            // asset index of LDOT: 1
             uint256[] memory amounts = new uint256[](2);
             amounts[0] = amount;
             amounts[1] = 0;

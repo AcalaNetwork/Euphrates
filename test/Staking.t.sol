@@ -10,7 +10,7 @@ contract SimpleStaking is Staking {
     constructor() {}
 }
 
-contract SimpleStakingTest is Test {
+contract StakingTest is Test {
     SimpleStaking public staking;
     IERC20 public shareTokenA;
     IERC20 public shareTokenB;

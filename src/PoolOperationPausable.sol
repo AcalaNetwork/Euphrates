@@ -13,7 +13,9 @@ abstract contract PoolOperationPausable {
     mapping(uint256 => mapping(Operation => bool)) internal _pausedPoolOperations;
 
     modifier poolOperationNotPaused(uint256 poolId, Operation operation) {
-        require(pausedPoolOperations(poolId, operation) == false, "The pool prohibited this operation.");
+        require(
+            pausedPoolOperations(poolId, operation) == false, "PoolOperationPausable: operation is paused for this pool"
+        );
         _;
     }
 
