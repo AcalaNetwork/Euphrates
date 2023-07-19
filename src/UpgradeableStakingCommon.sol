@@ -9,7 +9,7 @@ import "./PoolOperationPausable.sol";
 import "./Staking.sol";
 
 contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, Staking, PoolOperationPausable {
-    function initialize() public initializer {
+    function initialize() public virtual initializer {
         __Pausable_init();
         __Ownable_init();
     }

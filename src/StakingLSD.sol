@@ -25,14 +25,6 @@ contract StakingLSD is StakingCommon {
         Lcdot2Tdot
     }
 
-    // address public constant DOT = 0x0000000000000000000100000000000000000002;
-    // address public constant LCDOT = 0x000000000000000000040000000000000000000d;
-    // address public constant LDOT = 0x0000000000000000000100000000000000000003;
-    // address public constant TDOT = 0x0000000000000000000300000000000000000000;
-    // address public constant HOMA = 0x0000000000000000000000000000000000000805;
-    // address public constant STABLE_ASSET = 0x0000000000000000000000000000000000000804;
-    // address public constant LIQUID_CROWDLOAN = 0x0000000000000000000100000000000000000018; // TODO: did not existed, need config
-
     address public immutable DOT;
     address public immutable LCDOT;
     address public immutable LDOT;
@@ -40,6 +32,8 @@ contract StakingLSD is StakingCommon {
     address public immutable HOMA;
     address public immutable STABLE_ASSET;
     address public immutable LIQUID_CROWDLOAN;
+
+    mapping(uint256 => ConvertInfo) private _convertInfos;
 
     constructor(
         address dot,
@@ -66,35 +60,30 @@ contract StakingLSD is StakingCommon {
         LIQUID_CROWDLOAN = liquidCrowdloan;
     }
 
-    mapping(uint256 => ConvertInfo) private _convertInfos;
-
     function convertInfos(uint256 poolId) public view returns (ConvertInfo memory) {
         return _convertInfos[poolId];
     }
 
     function convertLSDPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) == LCDOT, "Share token must be Lcdot");
+        require(address(shareType) == LCDOT, "share token must be LcDOT");
 
         ConvertInfo storage convert = _convertInfos[poolId];
-        require(address(convert.convertedShareType) == address(0), "Already converted");
+        require(address(convert.convertedShareType) == address(0), "already converted");
 
         uint256 amount = totalShares(poolId);
+        require(amount > 0, "pool is empty");
 
         // redeem LcDOT to DOT at 1:1
         ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
 
         if (convertType == ConvertType.Lcdot2Ldot) {
-            uint256 exchangeRate = IHoma(HOMA).getExchangeRate();
-            require(exchangeRate != 0, "exchange rate shouldn't be zero");
-
             uint256 beforeLdotAmount = IERC20(LDOT).balanceOf(address(this));
             IHoma(HOMA).mint(amount);
             uint256 afterLdotAmount = IERC20(LDOT).balanceOf(address(this));
+            uint256 exchangeRate = afterLdotAmount.sub(beforeLdotAmount).mul(1e18).div(amount);
 
-            require(
-                amount.mul(exchangeRate).div(1e18).add(beforeLdotAmount) <= afterLdotAmount, "invalid exchange rate"
-            );
+            require(exchangeRate != 0, "exchange rate shouldn't be zero");
 
             convert.convertedShareType = IERC20(LDOT);
             convert.convertedExchangeRate = exchangeRate;
@@ -131,9 +120,9 @@ contract StakingLSD is StakingCommon {
         updateRewards(poolId, msg.sender)
         returns (bool)
     {
-        require(amount > 0, "Cannot stake 0");
+        require(amount > 0, "cannot stake 0");
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) != address(0), "Invalid pool");
+        require(address(shareType) != address(0), "invalid pool");
 
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
@@ -162,9 +151,9 @@ contract StakingLSD is StakingCommon {
         updateRewards(poolId, msg.sender)
         returns (bool)
     {
-        require(amount > 0, "Cannot unstake 0");
+        require(amount > 0, "cannot unstake 0");
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) != address(0), "Invalid pool");
+        require(address(shareType) != address(0), "invalid pool");
 
         _totalShares[poolId] = _totalShares[poolId].sub(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].sub(amount);
