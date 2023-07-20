@@ -6,6 +6,7 @@ import "../src/StakingLSD.sol";
 import "../src/IHoma.sol";
 import "../src/ILiquidCrowdloan.sol";
 import "../src/IStableAsset.sol";
+import "../src/UpgradeableStakingLSD.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
@@ -185,6 +186,7 @@ contract StakingLSDTest is Test {
     event LSDPoolConverted(uint256 poolId, IERC20 beforeShareType, IERC20 afterShareType, uint256 exchangeRate);
     event Unstake(address indexed account, uint256 poolId, uint256 amount);
     event Stake(address indexed account, uint256 poolId, uint256 amount);
+    event ClaimReward(address indexed account, uint256 poolId, IERC20 indexed rewardType, uint256 amount);
 
     StakingLSD public staking;
     IHoma public homa;
@@ -626,17 +628,18 @@ contract StakingLSDTest is Test {
 
         // ALICE unstake all share
         vm.prank(ALICE);
-        emit Unstake(ALICE, 0, 150_000);
-        staking.unstake(0, 150_000);
+        vm.expectEmit(false, false, false, true);
+        emit Unstake(ALICE, 0, 100_000);
+        staking.unstake(0, 100_000);
 
-        assertEq(staking.totalShares(0), 0);
-        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(staking.totalShares(0), 50_000);
+        assertEq(staking.shares(0, ALICE), 50_000);
         assertEq(lcdot.balanceOf(ALICE), 49_850_000);
         assertEq(lcdot.balanceOf(address(staking)), 0);
         assertEq(dot.balanceOf(ALICE), 59_000_000);
         assertEq(dot.balanceOf(address(staking)), 1_000_000);
-        assertEq(ldot.balanceOf(ALICE), 1_200_000);
-        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(ldot.balanceOf(ALICE), 800_000);
+        assertEq(ldot.balanceOf(address(staking)), 400_000);
         assertEq(staking.rewards(0, ALICE, dot), 500_000);
         assertEq(staking.earned(0, ALICE, dot), 500_000);
         assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 * 1000 * 1e18 / 200_000);
@@ -645,5 +648,113 @@ contract StakingLSDTest is Test {
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
         assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 * 1000 * 1e18 / 200_000);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+
+        // ALICE exit
+        vm.prank(ALICE);
+        vm.expectEmit(false, false, false, true);
+        emit Unstake(ALICE, 0, 50_000);
+        emit ClaimReward(ALICE, 0, dot, 500_000);
+        staking.exit(0);
+
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(lcdot.balanceOf(ALICE), 49_850_000);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(ALICE), 59_500_000);
+        assertEq(dot.balanceOf(address(staking)), 500_000);
+        assertEq(ldot.balanceOf(ALICE), 1_200_000);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.rewards(0, ALICE, dot), 0);
+        assertEq(staking.earned(0, ALICE, dot), 0);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 * 1000 * 1e18 / 200_000);
+        assertEq(staking.rewardPerShare(0, dot), 500 * 1000 * 1e18 / 200_000);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 * 1000 * 1e18 / 200_000);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+    }
+}
+
+contract UpgradeableStakingLSDTest is Test {
+    UpgradeableStakingLSD public staking;
+    IHoma public homa;
+    IStableAsset public stableAsset;
+    ILiquidCrowdloan public liquidCrowdloan;
+    IERC20 public dot;
+    IERC20 public ldot;
+    IERC20 public lcdot;
+    IERC20 public tdot;
+    address public ADMIN = address(0x1111);
+    address public ALICE = address(0x2222);
+
+    function setUp() public {
+        dot = new ERC20PresetFixedSupply("DOT", "DOT", 100_000_000, ALICE);
+        lcdot = new ERC20PresetFixedSupply("LcDOT", "LcDOT", 50_000_000, ALICE);
+        ldot = new ERC20PresetFixedSupply("LDOT", "LDOT", 80_000_000, ALICE);
+        tdot = new ERC20PresetFixedSupply("tDOT", "tDOT", 40_000_000, ALICE);
+
+        homa = new MockHoma(address(dot), address(ldot));
+        stableAsset = new MockStableAsset(address(dot), address(tdot));
+        liquidCrowdloan = new MockLiquidCrowdloan(address(lcdot), address(dot));
+
+        vm.startPrank(ALICE);
+        ldot.transfer(address(homa), 80_000_000);
+        dot.transfer(address(liquidCrowdloan), 40_000_000);
+        tdot.transfer(address(stableAsset), 40_000_000);
+        vm.stopPrank();
+
+        vm.prank(ADMIN);
+        staking = new UpgradeableStakingLSD();
+    }
+
+    function test_initialize_works() public {
+        assertEq(staking.owner(), address(0));
+        assertEq(staking.DOT(), address(0));
+        assertEq(staking.LCDOT(), address(0));
+        assertEq(staking.LDOT(), address(0));
+        assertEq(staking.TDOT(), address(0));
+        assertEq(staking.HOMA(), address(0));
+        assertEq(staking.STABLE_ASSET(), address(0));
+        assertEq(staking.LIQUID_CROWDLOAN(), address(0));
+
+        // check params
+        vm.prank(ALICE);
+        vm.expectRevert("LIQUID_CROWDLOAN address is zero");
+        staking.initialize(
+            address(dot), address(lcdot), address(ldot), address(tdot), address(homa), address(stableAsset), address(0)
+        );
+
+        // anyone can initialize staking contract
+        vm.prank(ALICE);
+        staking.initialize(
+            address(dot),
+            address(lcdot),
+            address(ldot),
+            address(tdot),
+            address(homa),
+            address(stableAsset),
+            address(liquidCrowdloan)
+        );
+        assertEq(staking.owner(), ALICE);
+        assertEq(staking.DOT(), address(dot));
+        assertEq(staking.LCDOT(), address(lcdot));
+        assertEq(staking.LDOT(), address(ldot));
+        assertEq(staking.TDOT(), address(tdot));
+        assertEq(staking.HOMA(), address(homa));
+        assertEq(staking.STABLE_ASSET(), address(stableAsset));
+        assertEq(staking.LIQUID_CROWDLOAN(), address(liquidCrowdloan));
+
+        // initialize cannot be called twice
+        vm.prank(ADMIN);
+        vm.expectRevert("Initializable: contract is already initialized");
+        staking.initialize(
+            address(dot),
+            address(lcdot),
+            address(ldot),
+            address(tdot),
+            address(homa),
+            address(stableAsset),
+            address(liquidCrowdloan)
+        );
     }
 }

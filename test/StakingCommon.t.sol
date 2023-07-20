@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 import "../src/StakingCommon.sol";
+import "../src/UpgradeableStakingCommon.sol";
 import "../src/PoolOperationPausable.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
@@ -204,5 +205,30 @@ contract StakingCommonTest is Test {
         // exit from pool 1 should work
         staking.exit(1);
         assertEq(staking.shares(1, ALICE), 0);
+    }
+}
+
+contract UpgradeableStakingCommonTest is Test {
+    UpgradeableStakingCommon public staking;
+    address public ADMIN = address(0x1111);
+    address public ALICE = address(0x2222);
+
+    function setUp() public {
+        vm.prank(ADMIN);
+        staking = new UpgradeableStakingCommon();
+    }
+
+    function test_initialize_works() public {
+        assertEq(staking.owner(), address(0));
+
+        // anyone can initialize
+        vm.prank(ALICE);
+        staking.initialize();
+        assertEq(staking.owner(), ALICE);
+
+        // initialize cannot be called twice
+        vm.prank(ADMIN);
+        vm.expectRevert("Initializable: contract is already initialized");
+        staking.initialize();
     }
 }

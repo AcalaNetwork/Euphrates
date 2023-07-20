@@ -44,13 +44,13 @@ contract StakingLSD is StakingCommon {
         address stableAsset,
         address liquidCrowdloan
     ) {
-        require(dot != address(0), "dot address is zero");
-        require(lcdot != address(0), "lcDOT address is zero");
-        require(ldot != address(0), "lDOT address is zero");
-        require(tdot != address(0), "tDOT address is zero");
-        require(homa != address(0), "homa address is zero");
-        require(stableAsset != address(0), "stableAsset address is zero");
-        require(liquidCrowdloan != address(0), "liquidCrowdloan address is zero");
+        require(dot != address(0), "DOT address is zero");
+        require(lcdot != address(0), "LCDOT address is zero");
+        require(ldot != address(0), "LDOT address is zero");
+        require(tdot != address(0), "TDOT address is zero");
+        require(homa != address(0), "HOMA address is zero");
+        require(stableAsset != address(0), "STABLE_ASSET address is zero");
+        require(liquidCrowdloan != address(0), "LIQUID_CROWDLOAN address is zero");
         DOT = dot;
         LCDOT = lcdot;
         LDOT = ldot;
