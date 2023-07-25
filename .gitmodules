@@ -10,3 +10,6 @@
 [submodule "lib/predeploy-contracts"]
 	path = lib/predeploy-contracts
 	url = https://github.com/AcalaNetwork/predeploy-contracts
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/transmissions11/solmate
