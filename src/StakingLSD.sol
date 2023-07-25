@@ -4,9 +4,9 @@ pragma solidity ^0.8.17;
 import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
-import "./IHoma.sol";
+import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
+import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "./ILiquidCrowdloan.sol";
-import "./IStableAsset.sol";
 import "./StakingCommon.sol";
 
 contract StakingLSD is StakingCommon {
