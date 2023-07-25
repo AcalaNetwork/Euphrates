@@ -6,10 +6,10 @@ import "forge-std/Script.sol";
 import "@openzeppelin-contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
+import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
+import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol";
 import "../src/UpgradeableStakingLSD.sol";
-import "../src/IHoma.sol";
-import "../src/IStableAsset.sol";
-import "../src/ILiquidCrowdloan.sol";
 
 contract DeployUpgradeableStakingLSDOnAcala is Script {
     UpgradeableStakingLSD implementationV1;

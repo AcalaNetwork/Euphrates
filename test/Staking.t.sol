@@ -2,9 +2,9 @@
 pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
-import "../src/Staking.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "../src/Staking.sol";
 
 contract SimpleStaking is Staking {
     constructor() {}
