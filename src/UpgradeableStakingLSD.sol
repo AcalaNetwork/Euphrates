@@ -41,7 +41,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
-    // overwrite initialize() in UpgradeableStakingCommon
+    // overwrite initialize() to mute initializer for UpgradeableStakingCommon
     function initialize() public override {}
 
     function initialize(
@@ -86,7 +86,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         } else if (redeemCurrency == DOT) {
             // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to LDOT by Homa.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             uint256 beforeLdotAmount = IERC20(LDOT).balanceOf(address(this));
             bool success = IHoma(HOMA).mint(redeemedAmount);
@@ -94,7 +93,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
             uint256 afterLdotAmount = IERC20(LDOT).balanceOf(address(this));
             convertAmount = afterLdotAmount.sub(beforeLdotAmount);
-        } else if (redeemCurrency == LDOT) {} else {
+        } else {
             revert("unsupported convert");
         }
     }
@@ -109,7 +108,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         } else if (redeemCurrency == DOT) {
             // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             // params for tDOT pool fo StableAsset on Acala:
             // tDOT pool id: 0
@@ -132,7 +130,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         } else if (redeemCurrency == LDOT) {
             // if redeemCurrency is DOT, need redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             // params for tDOT pool fo StableAsset on Acala:
             // tDOT pool id: 0
@@ -250,6 +247,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
+            // if pool has converted, stake converted share token
             uint256 convertedAmount = amount.mul(convertInfo.convertedExchangeRate).div(1e18);
             require(convertedAmount != 0, "shouldn't be zero");
 

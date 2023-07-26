@@ -80,7 +80,6 @@ contract StakingLSD is StakingCommon {
         } else if (redeemCurrency == DOT) {
             // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to LDOT by Homa.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             uint256 beforeLdotAmount = IERC20(LDOT).balanceOf(address(this));
             bool success = IHoma(HOMA).mint(redeemedAmount);
@@ -88,7 +87,7 @@ contract StakingLSD is StakingCommon {
 
             uint256 afterLdotAmount = IERC20(LDOT).balanceOf(address(this));
             convertAmount = afterLdotAmount.sub(beforeLdotAmount);
-        } else if (redeemCurrency == LDOT) {} else {
+        } else {
             revert("unsupported convert");
         }
     }
@@ -103,7 +102,6 @@ contract StakingLSD is StakingCommon {
         } else if (redeemCurrency == DOT) {
             // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             // params for tDOT pool fo StableAsset on Acala:
             // tDOT pool id: 0
@@ -126,7 +124,6 @@ contract StakingLSD is StakingCommon {
         } else if (redeemCurrency == LDOT) {
             // if redeemCurrency is DOT, need redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
             uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-            require(redeemedAmount != 0, "redeem amount shouldn't be zero");
 
             // params for tDOT pool fo StableAsset on Acala:
             // tDOT pool id: 0

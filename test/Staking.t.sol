@@ -40,12 +40,12 @@ contract StakingTest is Test {
         rewardTokenD = new ERC20PresetFixedSupply("rewardTokenD", "RTD", 10_000_000, ALICE);
     }
 
-    function test_addPool_RevertZeroShareType() public {
+    function test_addPool_revertZeroShareType() public {
         vm.expectRevert("share token is zero address");
         staking.addPool(IERC20(address(0)));
     }
 
-    function test_addPool_Success() public {
+    function test_addPool_works() public {
         assertEq(staking.poolIndex(), 0);
         assertEq(address(staking.shareTypes(0)), address(0));
         assertEq(staking.totalShares(0), 0);
@@ -58,19 +58,19 @@ contract StakingTest is Test {
         assertEq(staking.totalShares(0), 0);
     }
 
-    function test_setRewardsDeductionRate_RevertInvalidPool() public {
+    function test_setRewardsDeductionRate_revertInvalidPool() public {
         vm.expectRevert("invalid pool");
         staking.setRewardsDeductionRate(0, 800_000_000_000_000_000);
     }
 
-    function test_setRewardsDeductionRate_RevertInvalidRate() public {
+    function test_setRewardsDeductionRate_revertInvalidRate() public {
         staking.addPool(shareTokenA);
 
         vm.expectRevert("invalid rate");
         staking.setRewardsDeductionRate(0, 1_000_000_000_000_000_001);
     }
 
-    function test_setRewardsDeductionRate_Success() public {
+    function test_setRewardsDeductionRate_works() public {
         staking.addPool(shareTokenA);
 
         assertEq(staking.rewardsDeductionRates(0), 0);
@@ -90,17 +90,17 @@ contract StakingTest is Test {
         assertEq(staking.rewardsDeductionRates(0), 500_000_000_000_000_000);
     }
 
-    function test_notifyRewardRule_RevertZeroRewardType() public {
+    function test_notifyRewardRule_revertZeroRewardType() public {
         vm.expectRevert("reward token is zero address");
         staking.notifyRewardRule(0, IERC20(address(0)), 0, 0);
     }
 
-    function test_notifyRewardRule_RevertPoolNotExisted() public {
+    function test_notifyRewardRule_revertPoolNotExisted() public {
         vm.expectRevert("pool must be existed");
         staking.notifyRewardRule(0, rewardTokenA, 0, 0);
     }
 
-    function test_notifyRewardRule_RevertZeroDuration() public {
+    function test_notifyRewardRule_revertZeroDuration() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -110,7 +110,7 @@ contract StakingTest is Test {
         staking.notifyRewardRule(0, rewardTokenA, 0, 0);
     }
 
-    function test_notifyRewardRule_SuccessSetZeroRewardAddedWhenStartNewPeriod() public {
+    function test_notifyRewardRule_setZeroRewardAddedWhenStartNewPeriod() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -133,7 +133,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
     }
 
-    function test_notifyRewardRule_SuccessStartNewPeriod() public {
+    function test_notifyRewardRule_startNewPeriod() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -155,7 +155,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
     }
 
-    function test_notifyRewardRule_RevertTooManyRewardType() public {
+    function test_notifyRewardRule_revertTooManyRewardType() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -175,7 +175,7 @@ contract StakingTest is Test {
         staking.notifyRewardRule(0, rewardTokenD, 5_000_000, 4_000);
     }
 
-    function test_notifyRewardRule_SuccessStartNewPeriodWhenBeforeRuleExpired() public {
+    function test_notifyRewardRule_startNewPeriodWhenBeforeRuleExpired() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -201,7 +201,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_502_000);
     }
 
-    function test_notifyRewardRule_SuccessOverwritePreviousRule() public {
+    function test_notifyRewardRule_overwritePreviousRule() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -245,17 +245,17 @@ contract StakingTest is Test {
         assertEq(staking.rewardPerShare(0, rewardTokenA), 0);
     }
 
-    function test_stake_RevertZeroAmount() public {
+    function test_stake_revertZeroAmount() public {
         vm.expectRevert("cannot stake 0");
         staking.stake(0, 0);
     }
 
-    function test_stake_RevertInvalidPool() public {
+    function test_stake_revertInvalidPool() public {
         vm.expectRevert("invalid pool");
         staking.stake(0, 100);
     }
 
-    function test_stake_SuccessWithNoRewardRule() public {
+    function test_stake_withNoRewardRule() public {
         staking.addPool(shareTokenA);
 
         vm.startPrank(BOB);
@@ -295,7 +295,7 @@ contract StakingTest is Test {
         vm.stopPrank();
     }
 
-    function test_stake_SuccessRewardRuleAfterStake() public {
+    function test_stake_rewardRuleAfterStake() public {
         vm.warp(1_689_500_000);
         assertEq(block.timestamp, 1_689_500_000);
         staking.addPool(shareTokenA);
@@ -480,17 +480,17 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_503_000);
     }
 
-    function test_unstake_RevertZeroAmount() public {
+    function test_unstake_revertZeroAmount() public {
         vm.expectRevert("cannot unstake 0");
         staking.unstake(0, 0);
     }
 
-    function test_unstake_RevertInvalidPool() public {
+    function test_unstake_revertInvalidPool() public {
         vm.expectRevert("invalid pool");
         staking.unstake(0, 100);
     }
 
-    function test_unstake_RevertNotEnoughShares() public {
+    function test_unstake_revertNotEnoughShares() public {
         staking.addPool(shareTokenA);
         vm.startPrank(BOB);
         shareTokenA.approve(address(staking), 1_000_000);
@@ -503,7 +503,7 @@ contract StakingTest is Test {
         staking.unstake(0, 1_000_001);
     }
 
-    function test_unstake_SuccessHasRewardRule() public {
+    function test_unstake_hasRewardRule() public {
         vm.warp(1_689_500_000);
         staking.addPool(shareTokenA);
 
@@ -621,7 +621,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_502_000);
     }
 
-    function test_claimRewards_SuccessWithoutDeduction() public {
+    function test_claimRewards_withoutDeduction() public {
         vm.warp(1_689_500_000);
         staking.addPool(shareTokenA);
 
@@ -682,7 +682,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_501_000);
     }
 
-    function test_claimRewards_SuccessWithDeduction() public {
+    function test_claimRewards_withDeduction() public {
         vm.warp(1_689_500_000);
         staking.addPool(shareTokenA);
 
@@ -766,7 +766,7 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_501_000);
     }
 
-    function test_exit_Success() public {
+    function test_exit_works() public {
         vm.warp(1_689_500_000);
         staking.addPool(shareTokenA);
 
