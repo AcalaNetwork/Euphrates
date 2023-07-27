@@ -6,66 +6,148 @@ import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "./IStaking.sol";
 
+/// @title Staking Abstract Contract
+/// @author Acala Developers
+/// @notice Staking supports multiple reward tokens and rewards claim deduction pubnishment.
+/// Deduction rewards will be distributed to all stakers in the pool.
+/// @dev This contract does not define access control for functions, you should override these define
+/// in the derived contract.
 abstract contract Staking is IStaking {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
+    /// @notice The rule for `rewardType` token at `poolId` pool updated.
+    /// @param poolId The index of staking pool.
+    /// @param rewardType The reward token.
+    /// @param rewardRate The amount of `rewardType` token will accumulate per second.
+    /// @param endTime The end time of this reward rule.
     event RewardRuleUpdate(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime);
+
+    /// @notice New staking pool.
+    /// @param poolId The index of staking pool.
+    /// @param shareType The share token of this staking pool.
     event NewPool(uint256 poolId, IERC20 shareType);
+
+    /// @notice The deduction rate for all `rewardType` rewards of `poolId` pool updated.
+    /// @param poolId The index of staking pool.
+    /// @param rate The deduction rate.
     event RewardsDeductionRateSet(uint256 poolId, uint256 rate);
 
     struct RewardRule {
-        uint256 rewardRate; // reward amount per second
+        // Reward amount per second.
+        uint256 rewardRate;
+        // The end time for reward accumulation.
         uint256 endTime;
-        uint256 rewardRateAccumulated; // already mul 1e18 to avoid loss of precision
+        // Accumulated reward rate, this is used to calculate the reward amount of each staker.
+        // It mul 1e18 to avoid loss of precision.
+        uint256 rewardRateAccumulated;
+        // The last time of this rule accumulates reward.
         uint256 lastAccumulatedTime;
     }
 
+    /// @notice The maximum number of reward types for a staking pool. When distribute and receiving rewards,
+    /// all reward types of a pool will be iterated. Limit the number of reward types to avoid out of huge gas.
     uint256 public constant MAX_REWARD_TYPES = 3;
 
+    /// @dev The index of staking pools.
     uint256 internal _poolIndex = 0;
+
+    /// @dev The share token of staking pool.
+    /// (poolId => shareType)
     mapping(uint256 => IERC20) internal _shareTypes;
+
+    /// @dev The share token of staking pool.
+    /// (poolId => shareType)
     mapping(uint256 => uint256) internal _totalShares;
-    mapping(uint256 => uint256) internal _rewardsDeductionRates; // 1e18 is 100%
+
+    /// @dev The deduction rate for all rewards of pool. 1e18 is 100%
+    /// (poolId => rate)
+    mapping(uint256 => uint256) internal _rewardsDeductionRates;
+
+    /// @dev The reward token types of pool.
+    /// (poolId => rewardTypeArr[])
     mapping(uint256 => IERC20[]) internal _rewardTypes;
 
+    /// @dev The reward rule for reward type of pool.
+    /// (poolId => (rewardType => rule))
     mapping(uint256 => mapping(IERC20 => RewardRule)) internal _rewardRules;
+
+    /// @dev The share record for stakers of pool.
+    /// (poolId => (staker => shareAmount))
     mapping(uint256 => mapping(address => uint256)) internal _shares;
+
+    /// @dev The unclaimed reward amount for stakers of pool.
+    /// (poolId => (staker => (rewardType => rewardAmount)))
     mapping(uint256 => mapping(address => mapping(IERC20 => uint256))) internal _rewards;
+
+    /// @dev The reward accumulation rate for stakers of pool, this is used to calculate the reward amount of each staker.
+    /// (poolId => (staker => (rewardType => rewardAmount)))
     mapping(uint256 => mapping(address => mapping(IERC20 => uint256))) internal _paidAccumulatedRates;
 
+    /// @notice Get the index of next pool. It's equal to the current count of pools.
+    /// @return Returns the next pool index.
     function poolIndex() public view virtual returns (uint256) {
         return _poolIndex;
     }
 
+    /// @notice Get the share token of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns share token.
     function shareTypes(uint256 poolId) public view virtual override returns (IERC20) {
         return _shareTypes[poolId];
     }
 
+    /// @notice Get the total share amount of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns total share amount.
     function totalShares(uint256 poolId) public view virtual override returns (uint256) {
         return _totalShares[poolId];
     }
 
+    /// @notice Get the rewards decution rate of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns deduction rate.
     function rewardsDeductionRates(uint256 poolId) public view virtual returns (uint256) {
         return _rewardsDeductionRates[poolId];
     }
 
+    /// @notice Get the reward token types of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns reward token array.
     function rewardTypes(uint256 poolId) public view virtual override returns (IERC20[] memory) {
         return _rewardTypes[poolId];
     }
 
+    /// @notice Get the reward rule for `rewardType` reward of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param rewardType The reward token.
+    /// @return Returns reward rule.
     function rewardRules(uint256 poolId, IERC20 rewardType) public view virtual returns (RewardRule memory) {
         return _rewardRules[poolId][rewardType];
     }
 
+    /// @notice Get the share amount of `account` of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param account The staker.
+    /// @return Returns share amount.
     function shares(uint256 poolId, address account) public view virtual override returns (uint256) {
         return _shares[poolId][account];
     }
 
+    /// @notice Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param account The staker.
+    /// @param rewardType The reward token.
+    /// @return Returns reward amount.
     function rewards(uint256 poolId, address account, IERC20 rewardType) public view virtual returns (uint256) {
         return _rewards[poolId][account][rewardType];
     }
 
+    /// @notice Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param account The staker.
+    /// @param rewardType The reward token.
+    /// @return Returns rate.
     function paidAccumulatedRates(uint256 poolId, address account, IERC20 rewardType)
         public
         view
@@ -75,11 +157,21 @@ abstract contract Staking is IStaking {
         return _paidAccumulatedRates[poolId][account][rewardType];
     }
 
+    /// @notice Get lastest time that can be used to accumulate rewards for `rewardType` reward of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param rewardType The reward token.
+    /// @return Returns timestamp.
+    /// @dev If rule has ended, return the end time. Otherwise return the block time.
     function lastTimeRewardApplicable(uint256 poolId, IERC20 rewardType) public view virtual returns (uint256) {
         uint256 endTime = rewardRules(poolId, rewardType).endTime;
         return block.timestamp < endTime ? block.timestamp : endTime;
     }
 
+    /// @notice Get the exchange rate for share to `rewardType` reward token of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param rewardType The reward token.
+    /// @return Returns rate.
+    /// @dev The reward part is accumulated rate adds pending to accumulate rate, it's used to calculate reward. 1e18 is 100%.
     function rewardPerShare(uint256 poolId, IERC20 rewardType) public view virtual returns (uint256) {
         RewardRule memory rewardRule = rewardRules(poolId, rewardType);
         uint256 totalShare = totalShares(poolId);
@@ -95,6 +187,7 @@ abstract contract Staking is IStaking {
         return rewardRule.rewardRateAccumulated.add(pendingRewardRate);
     }
 
+    /// @inheritdoc IStaking
     function earned(uint256 poolId, address account, IERC20 rewardType)
         public
         view
@@ -110,6 +203,8 @@ abstract contract Staking is IStaking {
         return reward.add(pendingReward);
     }
 
+    /// @dev Modifier to accumulate rewards for `poolId` pool, and distribute new accumulate rewards
+    /// to `account` staker. If `account` is zero address, just accumulate rewards for pool.
     modifier updateRewards(uint256 poolId, address account) {
         IERC20[] memory types = rewardTypes(poolId);
 
@@ -128,6 +223,9 @@ abstract contract Staking is IStaking {
         _;
     }
 
+    /// @notice Initialize a staking pool for `shareType`.
+    /// @param shareType The share token.
+    /// @dev you should override this function to define access control in the derived contract.
     function addPool(IERC20 shareType) public virtual {
         require(address(shareType) != address(0), "share token is zero address");
 
@@ -138,6 +236,10 @@ abstract contract Staking is IStaking {
         emit NewPool(poolId, shareType);
     }
 
+    /// @notice Set deduction `rate` of claim rewards for `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param rate The deduction rate. 1e18 is 100%
+    /// @dev you should override this function to define access control in the derived contract.
     function setRewardsDeductionRate(uint256 poolId, uint256 rate) public virtual {
         require(address(shareTypes(poolId)) != address(0), "invalid pool");
         require(rate <= 1e18, "invalid rate");
@@ -146,6 +248,14 @@ abstract contract Staking is IStaking {
         emit RewardsDeductionRateSet(poolId, rate);
     }
 
+    /// @notice Start or adjust the reward rule of `rewardType` for `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param rewardType The reward token.
+    /// @param rewardAmountAdd The reward token added.
+    /// @param rewardDuration The reward accumulate lasting time.
+    /// @dev you should override this function to define access control in the derived contract.
+    /// It can start a new period reward, or add extra reward amount for ative rule, or ajust reward
+    /// rate by adjust rewardDuration but it cannot slash un-accumulate reward from ative rule.
     function notifyRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardAmountAdd, uint256 rewardDuration)
         public
         virtual
@@ -188,6 +298,7 @@ abstract contract Staking is IStaking {
         emit RewardRuleUpdate(poolId, rewardType, rewardRule.rewardRate, rewardRule.endTime);
     }
 
+    /// @inheritdoc IStaking
     function stake(uint256 poolId, uint256 amount)
         public
         virtual
@@ -209,6 +320,7 @@ abstract contract Staking is IStaking {
         return true;
     }
 
+    /// @inheritdoc IStaking
     function unstake(uint256 poolId, uint256 amount)
         public
         virtual
@@ -231,6 +343,7 @@ abstract contract Staking is IStaking {
         return true;
     }
 
+    /// @inheritdoc IStaking
     function claimRewards(uint256 poolId) public virtual override updateRewards(poolId, msg.sender) returns (bool) {
         IERC20[] memory types = rewardTypes(poolId);
         uint256 deductionRate = rewardsDeductionRates(poolId);
@@ -262,6 +375,7 @@ abstract contract Staking is IStaking {
         return true;
     }
 
+    /// @inheritdoc IStaking
     function exit(uint256 poolId) external virtual override returns (bool) {
         unstake(poolId, shares(poolId, msg.sender));
         claimRewards(poolId);

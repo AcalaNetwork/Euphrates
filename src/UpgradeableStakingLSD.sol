@@ -9,21 +9,35 @@ import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol";
 import "./UpgradeableStakingCommon.sol";
 
+/// @title UpgradeableStakingLSD Contract
+/// @author Acala Developers
+/// @notice This staking contract can convert the share token to it's LSD. It just support LcDOT token on Acala.
+/// @dev After pool's share is converted into its LSD token, this pool can be staked with LSD token and before token both.
+/// This version conforms to the specification for upgradeable contracts.
 contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
+    /// @notice The pool's share token is converted into its LSD token.
+    /// @param poolId The pool id.
+    /// @param beforeShareType The share token before converted.
+    /// @param afterShareType The share token after converted.
+    /// @param beforeShareTokenAmount The share token amount before converted.
+    /// @param afterShareTokenAmount The share token amount after converted.
+    /// @dev Only the owner of Ownable can call this function.
     event LSDPoolConverted(
         uint256 poolId,
         IERC20 beforeShareType,
         IERC20 afterShareType,
-        uint256 beforeShareAmount,
-        uint256 afterShareAmount
+        uint256 beforeShareTokenAmount,
+        uint256 afterShareTokenAmount
     );
 
     struct ConvertInfo {
+        // The converted LSD token.
         IERC20 convertedShareType;
-        uint256 convertedExchangeRate; // 旧的shareToken 同转化后的 shareToken 的兑换比例， 1e18 是 100%
+        // This is a snapshot of the ratio between share amount to new share token amount at the moment of conversion. 1e18 is 1:1
+        uint256 convertedExchangeRate;
     }
 
     enum ConvertType {
@@ -31,19 +45,36 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         Lcdot2Tdot
     }
 
+    /// @notice The DOT token address.
     address public DOT;
+
+    /// @notice The LcDOT token address.
     address public LCDOT;
+
+    /// @notice The LDOT token address.
     address public LDOT;
+
+    /// @notice The tDOT token address.
     address public TDOT;
+
+    /// @notice The Homa predeploy contract address.
     address public HOMA;
+
+    /// @notice The StableAsset predeploy contract address.
     address public STABLE_ASSET;
+
+    /// @notice The LiquidCrowdloan predeploy contract address.
     address public LIQUID_CROWDLOAN;
 
+    /// @dev The LSD convert info info of pool.
+    /// (poolId => convertInfo)
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
-    // overwrite initialize() to mute initializer for UpgradeableStakingCommon
+    /// @dev overwrite initialize() to mute initializer of UpgradeableStakingCommon
     function initialize() public override {}
 
+    /// @notice The initialize function.
+    /// @dev proxy contract will call this when firstly fetch this contract as the implementation contract.
     function initialize(
         address dot,
         address lcdot,
@@ -72,10 +103,16 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         __Ownable_init();
     }
 
+    /// @notice Get the LSD convertion info of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns convert info.
     function convertInfos(uint256 poolId) public view returns (ConvertInfo memory) {
         return _convertInfos[poolId];
     }
 
+    /// @dev convert `amount` LcDOT token of this contract to LDOT token.
+    /// @param amount The amount of LcDOT to convert.
+    /// @return convertAmount The amount of converted LDOT.
     function _convertLcdot2Ldot(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount > 0, "amount shouldn't be zero");
         address redeemCurrency = ILiquidCrowdloan(LIQUID_CROWDLOAN).getRedeemCurrency();
@@ -98,6 +135,9 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         }
     }
 
+    /// @dev convert `amount` LcDOT token of this contract to TDOT token.
+    /// @param amount The amount of LcDOT to convert.
+    /// @return convertAmount The amount of converted TDOT.
     function _convertLcdot2Tdot(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
         address redeemCurrency = ILiquidCrowdloan(LIQUID_CROWDLOAN).getRedeemCurrency();
@@ -154,6 +194,9 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         }
     }
 
+    /// @notice convert the share token of ‘poolId’ pool to LSD token by `convertType`.
+    /// @param poolId The index of staking pool.
+    /// @param convertType The convert type.
     function convertLSDPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) == LCDOT, "share token must be LcDOT");
@@ -183,7 +226,9 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         }
     }
 
-    // stake before share token for converted pool
+    /// @notice Stake before share token(if pool has been converted) to `poolId` pool
+    /// @param poolId The index of staking pool.
+    /// @param amount The share amount to stake.
     function stakeBeforeShareToken(uint256 poolId, uint256 amount)
         public
         whenNotPaused
@@ -232,7 +277,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         return true;
     }
 
-    // NOTE: override the impl of super contract, explicitly all modifiers
+    /// @notice Stake `amount` share token to `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param amount The share token amount to stake. If pool has been converted, it's converted share token amount, not the share amount.
+    /// @return Returns (success).
     function stake(uint256 poolId, uint256 amount)
         public
         override
@@ -264,7 +312,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         return true;
     }
 
-    // NOTE: override the impl of super contract, explicitly all modifiers
+    /// @notice Unstake `amount` share token from `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param amount The share token amount to unstake. If pool has been converted, it's converted share token amount, not the share amount.
+    /// @return Returns (success).
     function unstake(uint256 poolId, uint256 amount)
         public
         override

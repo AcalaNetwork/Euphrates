@@ -37,8 +37,8 @@ contract StakingLSDTest is Test {
         uint256 poolId,
         IERC20 beforeShareType,
         IERC20 afterShareType,
-        uint256 beforeShareAmount,
-        uint256 afterShareAmount
+        uint256 beforeShareTokenAmount,
+        uint256 afterShareTokenAmount
     );
     event Unstake(address indexed account, uint256 poolId, uint256 amount);
     event Stake(address indexed account, uint256 poolId, uint256 amount);
