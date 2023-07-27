@@ -77,7 +77,7 @@ const config: HardhatUserConfig = {
         cache: "./cache_hardhat",
     },
     dodoc: {
-        include: ['./src'],
+        // include: ['./src'],
         outputDir: './docs'
     }
 };
