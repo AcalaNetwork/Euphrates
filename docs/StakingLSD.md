@@ -226,7 +226,7 @@ convert the share token of ‘poolId’ pool to LSD token by `convertType`.
 ### earned
 
 ```solidity
-function earned(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function earned(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
 Get `who`&#39;s unclaimed reward amount of specific `rewardType` at `poolId` pool.
@@ -238,7 +238,7 @@ Get `who`&#39;s unclaimed reward amount of specific `rewardType` at `poolId` poo
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | undefined |
+| who | address | The address of staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -331,10 +331,10 @@ function owner() external view returns (address)
 ### paidAccumulatedRates
 
 ```solidity
-function paidAccumulatedRates(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function paidAccumulatedRates(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
-Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
+Get the paid accumulated rate of `rewardType` for `who` of `poolId` pool.
 
 
 
@@ -343,7 +343,7 @@ Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -502,10 +502,10 @@ Get the reward token types of `poolId` pool.
 ### rewards
 
 ```solidity
-function rewards(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function rewards(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
-Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
+Get the unclaimed paid `rewardType` reward amount for `who` of `poolId` pool.
 
 
 
@@ -514,7 +514,7 @@ Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -605,10 +605,10 @@ Get the share token of `poolId` pool.
 ### shares
 
 ```solidity
-function shares(uint256 poolId, address account) external view returns (uint256)
+function shares(uint256 poolId, address who) external view returns (uint256)
 ```
 
-Get the share amount of `account` of `poolId` pool.
+Get the share amount of `who` of `poolId` pool.
 
 
 
@@ -617,7 +617,7 @@ Get the share amount of `account` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 
 #### Returns
 
@@ -631,7 +631,7 @@ Get the share amount of `account` of `poolId` pool.
 function stake(uint256 poolId, uint256 amount) external nonpayable returns (bool)
 ```
 
-Stake `amount` share token to `poolId` pool.
+Stake `amount` share token to `poolId` pool. If pool has been converted, still stake before share token.
 
 
 
@@ -640,30 +640,7 @@ Stake `amount` share token to `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| amount | uint256 | The share token amount to stake. If pool has been converted, it&#39;s converted share token amount, not the share amount. |
-
-#### Returns
-
-| Name | Type | Description |
-|---|---|---|
-| _0 | bool | Returns (success). |
-
-### stakeBeforeShareToken
-
-```solidity
-function stakeBeforeShareToken(uint256 poolId, uint256 amount) external nonpayable returns (bool)
-```
-
-Stake before share token(if pool has been converted) to `poolId` pool
-
-
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| poolId | uint256 | The index of staking pool. |
-| amount | uint256 | The share amount to stake. |
+| amount | uint256 | The amount of share token to stake. |
 
 #### Returns
 

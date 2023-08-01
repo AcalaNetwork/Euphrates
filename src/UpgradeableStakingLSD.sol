@@ -24,7 +24,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @param afterShareType The share token after converted.
     /// @param beforeShareTokenAmount The share token amount before converted.
     /// @param afterShareTokenAmount The share token amount after converted.
-    /// @dev Only the owner of Ownable can call this function.
     event LSDPoolConverted(
         uint256 poolId,
         IERC20 beforeShareType,
@@ -41,8 +40,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     }
 
     enum ConvertType {
-        Lcdot2Ldot,
-        Lcdot2Tdot
+        LCDOT2LDOT,
+        LCDOT2TDOT,
+        DOT2LDOT,
+        DOT2TDOT
     }
 
     /// @notice The DOT token address.
@@ -110,26 +111,95 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         return _convertInfos[poolId];
     }
 
+    /// @dev redeem `amount` LcDOT token on LiquidCrowdloan contract.
+    /// @param amount The amount of LcDOT to redeem.
+    /// @return redeemCurrency The token address of redeemed currency.
+    /// @return redeemedAmount The amount of redeemed token.
+    function _redeemLCDOT(uint256 amount) internal returns (address redeemCurrency, uint256 redeemedAmount) {
+        require(amount > 0, "amount shouldn't be zero");
+        redeemCurrency = ILiquidCrowdloan(LIQUID_CROWDLOAN).getRedeemCurrency();
+        redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
+    }
+
+    /// @dev convert `amount` DOT token of this contract to LDOT token.
+    /// @param amount The amount of DOT to convert.
+    /// @return convertAmount The amount of converted LDOT.
+    function _convertDOT2LDOT(uint256 amount) internal returns (uint256 convertAmount) {
+        require(amount > 0, "amount shouldn't be zero");
+
+        uint256 beforeLdotAmount = IERC20(LDOT).balanceOf(address(this));
+        bool success = IHoma(HOMA).mint(amount);
+        require(success, "homa mint failed");
+
+        uint256 afterLdotAmount = IERC20(LDOT).balanceOf(address(this));
+        convertAmount = afterLdotAmount.sub(beforeLdotAmount);
+    }
+
+    /// @dev convert `amount` DOT token of this contract to TDOT token.
+    /// @param amount The amount of DOT to convert.
+    /// @return convertAmount The amount of converted TDOT.
+    function _convertDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
+        require(amount > 0, "amount shouldn't be zero");
+
+        // params for tDOT pool fo StableAsset on Acala:
+        // tDOT pool id: 0
+        // assets length: 2
+        // asset index of DOT: 0
+        // here deadcode these params
+        (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
+        require(valid && assets[0] == DOT, "invalid stable asset pool");
+
+        uint256[] memory paramAmounts = new uint256[](2);
+        paramAmounts[0] = amount;
+        paramAmounts[1] = 0;
+
+        uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
+        require(success, "stable-asset mint failed");
+
+        uint256 afterTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        convertAmount = afterTdotAmount.sub(beforeTdotAmount);
+    }
+
+    /// @dev convert `amount` LDOT token of this contract to TDOT token.
+    /// @param amount The amount of LDOT to convert.
+    /// @return convertAmount The amount of converted TDOT.
+    function _convertLDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
+        require(amount > 0, "amount shouldn't be zero");
+
+        // params for tDOT pool fo StableAsset on Acala:
+        // tDOT pool id: 0
+        // assets length: 2
+        // asset index of LDOT: 1
+        // here deadcode these params
+        (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
+        require(valid && assets[1] == LDOT, "invalid stable asset pool");
+
+        uint256[] memory paramAmounts = new uint256[](2);
+        paramAmounts[0] = 0;
+        paramAmounts[1] = amount;
+
+        uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
+        require(success, "stable-asset mint failed");
+
+        uint256 afterTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        convertAmount = afterTdotAmount.sub(beforeTdotAmount);
+    }
+
     /// @dev convert `amount` LcDOT token of this contract to LDOT token.
     /// @param amount The amount of LcDOT to convert.
     /// @return convertAmount The amount of converted LDOT.
-    function _convertLcdot2Ldot(uint256 amount) internal returns (uint256 convertAmount) {
+    function _convertLCDOT2LDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount > 0, "amount shouldn't be zero");
-        address redeemCurrency = ILiquidCrowdloan(LIQUID_CROWDLOAN).getRedeemCurrency();
+
+        // redeem LcDOT by LiquidCrowdloan.
+        (address redeemCurrency, uint256 redeemedAmount) = _redeemLCDOT(amount);
 
         if (redeemCurrency == LDOT) {
-            // if redeemCurrency is LDOT, redeem LcDOT to LDOT directly by LiquidCrowdloan.
-            convertAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
+            convertAmount = redeemedAmount;
         } else if (redeemCurrency == DOT) {
-            // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to LDOT by Homa.
-            uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-
-            uint256 beforeLdotAmount = IERC20(LDOT).balanceOf(address(this));
-            bool success = IHoma(HOMA).mint(redeemedAmount);
-            require(success, "homa mint failed");
-
-            uint256 afterLdotAmount = IERC20(LDOT).balanceOf(address(this));
-            convertAmount = afterLdotAmount.sub(beforeLdotAmount);
+            convertAmount = _convertDOT2LDOT(redeemedAmount);
         } else {
             revert("unsupported convert");
         }
@@ -138,57 +208,18 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @dev convert `amount` LcDOT token of this contract to TDOT token.
     /// @param amount The amount of LcDOT to convert.
     /// @return convertAmount The amount of converted TDOT.
-    function _convertLcdot2Tdot(uint256 amount) internal returns (uint256 convertAmount) {
+    function _convertLCDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
-        address redeemCurrency = ILiquidCrowdloan(LIQUID_CROWDLOAN).getRedeemCurrency();
+
+        // redeem LcDOT by LiquidCrowdloan.
+        (address redeemCurrency, uint256 redeemedAmount) = _redeemLCDOT(amount);
 
         if (redeemCurrency == TDOT) {
-            // if redeemCurrency is TDOT, redeem LcDOT to TDOT directly by LiquidCrowdloan.
-            convertAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
+            convertAmount = redeemedAmount;
         } else if (redeemCurrency == DOT) {
-            // if redeemCurrency is DOT, redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
-            uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-
-            // params for tDOT pool fo StableAsset on Acala:
-            // tDOT pool id: 0
-            // assets length: 2
-            // asset index of DOT: 0
-            // here deadcode these params
-            (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
-            require(valid && assets[0] == DOT, "invalid stable asset pool");
-
-            uint256[] memory paramAmounts = new uint256[](2);
-            paramAmounts[0] = redeemedAmount;
-            paramAmounts[1] = 0;
-
-            uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
-            bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
-            require(success, "stable-asset mint failed");
-
-            uint256 afterTdotAmount = IERC20(TDOT).balanceOf(address(this));
-            convertAmount = afterTdotAmount.sub(beforeTdotAmount);
+            convertAmount = _convertDOT2TDOT(redeemedAmount);
         } else if (redeemCurrency == LDOT) {
-            // if redeemCurrency is DOT, need redeem LcDOT to DOT by LiquidCrowdloan firstly, then convert DOT to TDOT by StableAsset.
-            uint256 redeemedAmount = ILiquidCrowdloan(LIQUID_CROWDLOAN).redeem(amount);
-
-            // params for tDOT pool fo StableAsset on Acala:
-            // tDOT pool id: 0
-            // assets length: 2
-            // asset index of LDOT: 1
-            // here deadcode these params
-            (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
-            require(valid && assets[1] == LDOT, "invalid stable asset pool");
-
-            uint256[] memory paramAmounts = new uint256[](2);
-            paramAmounts[0] = 0;
-            paramAmounts[1] = redeemedAmount;
-
-            uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
-            bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
-            require(success, "stable-asset mint failed");
-
-            uint256 afterTdotAmount = IERC20(TDOT).balanceOf(address(this));
-            convertAmount = afterTdotAmount.sub(beforeTdotAmount);
+            convertAmount = _convertLDOT2TDOT(redeemedAmount);
         } else {
             revert("unsupported convert");
         }
@@ -199,38 +230,50 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @param convertType The convert type.
     function convertLSDPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) == LCDOT, "share token must be LcDOT");
-
         ConvertInfo storage convert = _convertInfos[poolId];
         require(address(convert.convertedShareType) == address(0), "already converted");
 
         uint256 amount = totalShares(poolId);
         require(amount > 0, "pool is empty");
 
-        if (convertType == ConvertType.Lcdot2Ldot) {
-            uint256 convertAmount = _convertLcdot2Ldot(amount);
-            uint256 exchangeRate = convertAmount.mul(1e18).div(amount);
-            require(exchangeRate != 0, "exchange rate shouldn't be zero");
+        uint256 convertAmount;
 
+        if (convertType == ConvertType.LCDOT2LDOT) {
+            require(address(shareType) == LCDOT, "share token must be LcDOT");
+
+            convertAmount = _convertLCDOT2LDOT(amount);
             convert.convertedShareType = IERC20(LDOT);
-            convert.convertedExchangeRate = exchangeRate;
-            emit LSDPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
-        } else if (convertType == ConvertType.Lcdot2Tdot) {
-            uint256 convertAmount = _convertLcdot2Tdot(amount);
-            uint256 exchangeRate = convertAmount.mul(1e18).div(amount);
-            require(exchangeRate != 0, "exchange rate shouldn't be zero");
+        } else if (convertType == ConvertType.LCDOT2TDOT) {
+            require(address(shareType) == LCDOT, "share token must be LcDOT");
 
+            convertAmount = _convertLCDOT2TDOT(amount);
             convert.convertedShareType = IERC20(TDOT);
-            convert.convertedExchangeRate = exchangeRate;
-            emit LSDPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
+        } else if (convertType == ConvertType.DOT2LDOT) {
+            require(address(shareType) == DOT, "share token must be DOT");
+
+            convertAmount = _convertDOT2LDOT(amount);
+            convert.convertedShareType = IERC20(LDOT);
+        } else if (convertType == ConvertType.DOT2TDOT) {
+            require(address(shareType) == DOT, "share token must be DOT");
+
+            convertAmount = _convertDOT2TDOT(amount);
+            convert.convertedShareType = IERC20(TDOT);
+        } else {
+            revert("unsupported convert");
         }
+
+        uint256 exchangeRate = convertAmount.mul(1e18).div(amount);
+        require(exchangeRate != 0, "exchange rate shouldn't be zero");
+        convert.convertedExchangeRate = exchangeRate;
+        emit LSDPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
     }
 
-    /// @notice Stake before share token(if pool has been converted) to `poolId` pool
+    /// @notice Stake `amount` share token to `poolId` pool. If pool has been converted, still stake before share token.
     /// @param poolId The index of staking pool.
-    /// @param amount The share amount to stake.
-    function stakeBeforeShareToken(uint256 poolId, uint256 amount)
+    /// @param amount The amount of share token to stake.
+    function stake(uint256 poolId, uint256 amount)
         public
+        override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Stake)
         updateRewards(poolId, msg.sender)
@@ -241,17 +284,19 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         require(address(shareType) != address(0), "invalid pool");
 
         ConvertInfo memory convertInfo = convertInfos(poolId);
-        if (address(shareType) == LCDOT && address(convertInfo.convertedShareType) != address(0)) {
+        if (address(convertInfo.convertedShareType) != address(0)) {
             // if pool has converted, transfer the before share token to this firstly
             shareType.safeTransferFrom(msg.sender, address(this), amount);
 
-            uint256 convertedAmount = 0;
-            if (address(convertInfo.convertedShareType) == LDOT) {
-                // convert LcDOT to LDOT
-                convertedAmount = _convertLcdot2Ldot(amount);
-            } else if (address(convertInfo.convertedShareType) == TDOT) {
-                // convert LcDOT to TDOT
-                convertedAmount = _convertLcdot2Tdot(amount);
+            uint256 convertedAmount;
+            if (address(shareType) == LCDOT && address(convertInfo.convertedShareType) == LDOT) {
+                convertedAmount = _convertLCDOT2LDOT(amount);
+            } else if (address(shareType) == LCDOT && address(convertInfo.convertedShareType) == TDOT) {
+                convertedAmount = _convertLCDOT2TDOT(amount);
+            } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == LDOT) {
+                convertedAmount = _convertDOT2LDOT(amount);
+            } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == LDOT) {
+                convertedAmount = _convertDOT2TDOT(amount);
             } else {
                 revert("unsupported converted share token");
             }
@@ -273,41 +318,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
             emit Stake(msg.sender, poolId, amount);
         }
-
-        return true;
-    }
-
-    /// @notice Stake `amount` share token to `poolId` pool.
-    /// @param poolId The index of staking pool.
-    /// @param amount The share token amount to stake. If pool has been converted, it's converted share token amount, not the share amount.
-    /// @return Returns (success).
-    function stake(uint256 poolId, uint256 amount)
-        public
-        override
-        whenNotPaused
-        poolOperationNotPaused(poolId, Operation.Stake)
-        updateRewards(poolId, msg.sender)
-        returns (bool)
-    {
-        require(amount > 0, "cannot stake 0");
-        IERC20 shareType = shareTypes(poolId);
-        require(address(shareType) != address(0), "invalid pool");
-
-        ConvertInfo memory convertInfo = convertInfos(poolId);
-        if (address(convertInfo.convertedShareType) != address(0)) {
-            // if pool has converted, stake converted share token
-            uint256 convertedAmount = amount.mul(convertInfo.convertedExchangeRate).div(1e18);
-            require(convertedAmount != 0, "shouldn't be zero");
-
-            convertInfo.convertedShareType.safeTransferFrom(msg.sender, address(this), convertedAmount);
-        } else {
-            shareType.safeTransferFrom(msg.sender, address(this), amount);
-        }
-
-        _totalShares[poolId] = _totalShares[poolId].add(amount);
-        _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(amount);
-
-        emit Stake(msg.sender, poolId, amount);
 
         return true;
     }

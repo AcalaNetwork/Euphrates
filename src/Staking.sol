@@ -126,35 +126,35 @@ abstract contract Staking is IStaking {
         return _rewardRules[poolId][rewardType];
     }
 
-    /// @notice Get the share amount of `account` of `poolId` pool.
+    /// @notice Get the share amount of `who` of `poolId` pool.
     /// @param poolId The index of staking pool.
-    /// @param account The staker.
+    /// @param who The staker.
     /// @return Returns share amount.
-    function shares(uint256 poolId, address account) public view virtual override returns (uint256) {
-        return _shares[poolId][account];
+    function shares(uint256 poolId, address who) public view virtual override returns (uint256) {
+        return _shares[poolId][who];
     }
 
-    /// @notice Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
+    /// @notice Get the unclaimed paid `rewardType` reward amount for `who` of `poolId` pool.
     /// @param poolId The index of staking pool.
-    /// @param account The staker.
+    /// @param who The staker.
     /// @param rewardType The reward token.
     /// @return Returns reward amount.
-    function rewards(uint256 poolId, address account, IERC20 rewardType) public view virtual returns (uint256) {
-        return _rewards[poolId][account][rewardType];
+    function rewards(uint256 poolId, address who, IERC20 rewardType) public view virtual returns (uint256) {
+        return _rewards[poolId][who][rewardType];
     }
 
-    /// @notice Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
+    /// @notice Get the paid accumulated rate of `rewardType` for `who` of `poolId` pool.
     /// @param poolId The index of staking pool.
-    /// @param account The staker.
+    /// @param who The staker.
     /// @param rewardType The reward token.
     /// @return Returns rate.
-    function paidAccumulatedRates(uint256 poolId, address account, IERC20 rewardType)
+    function paidAccumulatedRates(uint256 poolId, address who, IERC20 rewardType)
         public
         view
         virtual
         returns (uint256)
     {
-        return _paidAccumulatedRates[poolId][account][rewardType];
+        return _paidAccumulatedRates[poolId][who][rewardType];
     }
 
     /// @notice Get lastest time that can be used to accumulate rewards for `rewardType` reward of `poolId` pool.
@@ -188,23 +188,17 @@ abstract contract Staking is IStaking {
     }
 
     /// @inheritdoc IStaking
-    function earned(uint256 poolId, address account, IERC20 rewardType)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
-        uint256 share = shares(poolId, account);
-        uint256 reward = rewards(poolId, account, rewardType);
-        uint256 paidAccumulatedRate = paidAccumulatedRates(poolId, account, rewardType);
+    function earned(uint256 poolId, address who, IERC20 rewardType) public view virtual override returns (uint256) {
+        uint256 share = shares(poolId, who);
+        uint256 reward = rewards(poolId, who, rewardType);
+        uint256 paidAccumulatedRate = paidAccumulatedRates(poolId, who, rewardType);
         uint256 pendingReward = share.mul(rewardPerShare(poolId, rewardType).sub(paidAccumulatedRate)).div(1e18); // div 10**18 that was mul in rewardPerShare
 
         return reward.add(pendingReward);
     }
 
     /// @dev Modifier to accumulate rewards for `poolId` pool, and distribute new accumulate rewards
-    /// to `account` staker. If `account` is zero address, just accumulate rewards for pool.
+    /// to `account`. If `account` is zero address, just accumulate rewards for pool.
     modifier updateRewards(uint256 poolId, address account) {
         IERC20[] memory types = rewardTypes(poolId);
 

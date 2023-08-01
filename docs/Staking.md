@@ -68,7 +68,7 @@ Claim all rewards from staking pool.
 ### earned
 
 ```solidity
-function earned(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function earned(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
 Get `who`&#39;s unclaimed reward amount of specific `rewardType` at `poolId` pool.
@@ -80,7 +80,7 @@ Get `who`&#39;s unclaimed reward amount of specific `rewardType` at `poolId` poo
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | undefined |
+| who | address | The address of staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -156,10 +156,10 @@ Start or adjust the reward rule of `rewardType` for `poolId` pool.
 ### paidAccumulatedRates
 
 ```solidity
-function paidAccumulatedRates(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function paidAccumulatedRates(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
-Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
+Get the paid accumulated rate of `rewardType` for `who` of `poolId` pool.
 
 
 
@@ -168,7 +168,7 @@ Get the paid accumulated rate of `rewardType` for `account` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -265,10 +265,10 @@ Get the reward token types of `poolId` pool.
 ### rewards
 
 ```solidity
-function rewards(uint256 poolId, address account, contract IERC20 rewardType) external view returns (uint256)
+function rewards(uint256 poolId, address who, contract IERC20 rewardType) external view returns (uint256)
 ```
 
-Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
+Get the unclaimed paid `rewardType` reward amount for `who` of `poolId` pool.
 
 
 
@@ -277,7 +277,7 @@ Get the unclaimed paid `rewardType` reward amount for `acount` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 | rewardType | contract IERC20 | The reward token. |
 
 #### Returns
@@ -350,10 +350,10 @@ Get the share token of `poolId` pool.
 ### shares
 
 ```solidity
-function shares(uint256 poolId, address account) external view returns (uint256)
+function shares(uint256 poolId, address who) external view returns (uint256)
 ```
 
-Get the share amount of `account` of `poolId` pool.
+Get the share amount of `who` of `poolId` pool.
 
 
 
@@ -362,7 +362,7 @@ Get the share amount of `account` of `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| account | address | The staker. |
+| who | address | The staker. |
 
 #### Returns
 
