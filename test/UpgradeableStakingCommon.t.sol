@@ -4,12 +4,11 @@ pragma solidity ^0.8.17;
 import "forge-std/Test.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "../src/StakingCommon.sol";
 import "../src/UpgradeableStakingCommon.sol";
 import "../src/PoolOperationPausable.sol";
 
-contract StakingCommonTest is Test {
-    StakingCommon public staking;
+contract UpgradeableStakingCommonTest is Test {
+    UpgradeableStakingCommon public staking;
     IERC20 public shareTokenA;
     IERC20 public shareTokenB;
     IERC20 public rewardTokenA;
@@ -24,11 +23,12 @@ contract StakingCommonTest is Test {
     event Stake(address indexed account, uint256 poolId, uint256 amount);
 
     function setUp() public {
-        vm.prank(ADMIN);
-        staking = new StakingCommon();
         shareTokenA = new ERC20PresetFixedSupply("ShareTokenA", "STA", 10_000_000, ALICE);
         shareTokenB = new ERC20PresetFixedSupply("ShareTokenB", "STB", 10_000_000, ALICE);
         rewardTokenA = new ERC20PresetFixedSupply("rewardTokenA", "RTA", 10_000_000, ALICE);
+        staking = new UpgradeableStakingCommon();
+        vm.prank(ADMIN);
+        staking.initialize();
     }
 
     function test_Ownable_works() public {
@@ -86,11 +86,11 @@ contract StakingCommonTest is Test {
         assertEq(staking.rewardTypes(0).length, 0);
         vm.prank(ALICE);
         vm.expectRevert("Ownable: caller is not the owner");
-        staking.notifyRewardRule(0, rewardTokenA, 100_000 * 1e18, 30 days);
+        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
 
-        // only owner can notify reward rule
+        // only owner can update reward rule
         vm.prank(ADMIN);
-        staking.notifyRewardRule(0, rewardTokenA, 100_000 * 1e18, 30 days);
+        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
         assertEq(staking.rewardTypes(0).length, 1);
     }
 
@@ -112,7 +112,7 @@ contract StakingCommonTest is Test {
         staking.setRewardsDeductionRate(0, 1e18 / 10);
 
         vm.expectRevert("Pausable: paused");
-        staking.notifyRewardRule(0, rewardTokenA, 100_000 * 1e18, 30 days);
+        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
 
         vm.expectRevert("Pausable: paused");
         staking.stake(0, 1_000_000);
@@ -139,7 +139,7 @@ contract StakingCommonTest is Test {
         staking.setRewardsDeductionRate(0, 1e18 / 10);
         assertEq(staking.rewardsDeductionRates(0), 1e18 / 10);
 
-        staking.notifyRewardRule(0, rewardTokenA, 100_000 * 1e18, 30 days);
+        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
         assertEq(staking.rewardTypes(0).length, 1);
         vm.stopPrank();
 
@@ -205,30 +205,5 @@ contract StakingCommonTest is Test {
         // exit from pool 1 should work
         staking.exit(1);
         assertEq(staking.shares(1, ALICE), 0);
-    }
-}
-
-contract UpgradeableStakingCommonTest is Test {
-    UpgradeableStakingCommon public staking;
-    address public ADMIN = address(0x1111);
-    address public ALICE = address(0x2222);
-
-    function setUp() public {
-        vm.prank(ADMIN);
-        staking = new UpgradeableStakingCommon();
-    }
-
-    function test_initialize_works() public {
-        assertEq(staking.owner(), address(0));
-
-        // anyone can initialize
-        vm.prank(ALICE);
-        staking.initialize();
-        assertEq(staking.owner(), ALICE);
-
-        // initialize cannot be called twice
-        vm.prank(ADMIN);
-        vm.expectRevert("Initializable: contract is already initialized");
-        staking.initialize();
     }
 }

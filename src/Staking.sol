@@ -242,22 +242,19 @@ abstract contract Staking is IStaking {
         emit RewardsDeductionRateSet(poolId, rate);
     }
 
-    /// @notice Start or adjust the reward rule of `rewardType` for `poolId` pool.
+    /// @notice Update the reward rule of `rewardType` for `poolId` pool.
     /// @param poolId The index of staking pool.
     /// @param rewardType The reward token.
-    /// @param rewardAmountAdd The reward token added.
-    /// @param rewardDuration The reward accumulate lasting time.
+    /// @param rewardRate The reward amount per second.
+    /// @param endTime The end time of fule.
     /// @dev you should override this function to define access control in the derived contract.
-    /// It can start a new period reward, or add extra reward amount for ative rule, or ajust reward
-    /// rate by adjust rewardDuration but it cannot slash un-accumulate reward from ative rule.
-    function notifyRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardAmountAdd, uint256 rewardDuration)
+    function updateRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime)
         public
         virtual
         updateRewards(poolId, address(0))
     {
         require(address(rewardType) != address(0), "reward token is zero address");
         require(address(shareTypes(poolId)) != address(0), "pool must be existed");
-        require(rewardDuration != 0, "zero reward duration");
 
         IERC20[] memory types = rewardTypes(poolId);
         bool isNew = true;
@@ -275,19 +272,13 @@ abstract contract Staking is IStaking {
         require(_rewardTypes[poolId].length <= MAX_REWARD_TYPES, "too many reward types");
 
         RewardRule storage rewardRule = _rewardRules[poolId][rewardType];
-
-        if (block.timestamp >= rewardRule.endTime) {
-            // start a new reward period
-            rewardRule.rewardRate = rewardAmountAdd.div(rewardDuration);
-        } else {
-            // overwrite duration and increase reward amount, allow zero reward amount added
-            uint256 remainingTime = rewardRule.endTime.sub(block.timestamp);
-            uint256 leftover = remainingTime.mul(rewardRule.rewardRate);
-            rewardRule.rewardRate = leftover.add(rewardAmountAdd).div(rewardDuration);
-        }
-
-        rewardRule.endTime = block.timestamp.add(rewardDuration);
+        rewardRule.rewardRate = rewardRate;
         rewardRule.lastAccumulatedTime = block.timestamp;
+        if (block.timestamp > endTime) {
+            rewardRule.endTime = block.timestamp;
+        } else {
+            rewardRule.endTime = endTime;
+        }
 
         emit RewardRuleUpdate(poolId, rewardType, rewardRule.rewardRate, rewardRule.endTime);
     }

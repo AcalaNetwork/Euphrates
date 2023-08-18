@@ -8,6 +8,7 @@ import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
 import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol";
 import "./UpgradeableStakingCommon.sol";
+import "./WrappedTDOT.sol";
 
 /// @title UpgradeableStakingLSD Contract
 /// @author Acala Developers
@@ -43,7 +44,9 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         LCDOT2LDOT,
         LCDOT2TDOT,
         DOT2LDOT,
-        DOT2TDOT
+        DOT2TDOT,
+        LCDOT2WTDOT,
+        DOT2WTDOT
     }
 
     /// @notice The DOT token address.
@@ -67,6 +70,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @notice The LiquidCrowdloan predeploy contract address.
     address public LIQUID_CROWDLOAN;
 
+    address public WTDOT;
+
+    uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000;
+
     /// @dev The LSD convert info info of pool.
     /// (poolId => convertInfo)
     mapping(uint256 => ConvertInfo) private _convertInfos;
@@ -83,7 +90,8 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         address tdot,
         address homa,
         address stableAsset,
-        address liquidCrowdloan
+        address liquidCrowdloan,
+        address wtdot
     ) public initializer {
         require(dot != address(0), "DOT address is zero");
         require(lcdot != address(0), "lCDOT address is zero");
@@ -92,6 +100,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         require(homa != address(0), "HOMA address is zero");
         require(stableAsset != address(0), "STABLE_ASSET address is zero");
         require(liquidCrowdloan != address(0), "LIQUID_CROWDLOAN address is zero");
+        require(wtdot != address(0), "WTDOT address is zero");
         DOT = dot;
         LCDOT = lcdot;
         LDOT = ldot;
@@ -99,10 +108,15 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         HOMA = homa;
         STABLE_ASSET = stableAsset;
         LIQUID_CROWDLOAN = liquidCrowdloan;
+        WTDOT = wtdot;
 
         __Pausable_init();
         __Ownable_init();
     }
+
+    // function setWTDOT(address wtdot) public onlyOwner {
+    //     WTDOT = wtdot;
+    // }
 
     /// @notice Get the LSD convertion info of `poolId` pool.
     /// @param poolId The index of staking pool.
@@ -145,13 +159,20 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         // tDOT pool id: 0
         // assets length: 2
         // asset index of DOT: 0
+        // asset index of LDOT: 1
         // here deadcode these params
         (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
         require(valid && assets[0] == DOT, "invalid stable asset pool");
-
         uint256[] memory paramAmounts = new uint256[](2);
-        paramAmounts[0] = amount;
-        paramAmounts[1] = 0;
+
+        if (amount.div(2) >= HOMA_MINT_THRESHOLD) {
+            uint256 ldotAmount = _convertDOT2LDOT(amount.div(2));
+            paramAmounts[0] = amount.sub(amount.div(2));
+            paramAmounts[1] = ldotAmount;
+        } else {
+            paramAmounts[0] = amount;
+            paramAmounts[1] = 0;
+        }
 
         uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
         bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
@@ -225,6 +246,17 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         }
     }
 
+    function _convertWTDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
+        require(amount != 0, "amount shouldn't be zero");
+        return IWTDOT(WTDOT).withdraw(amount);
+    }
+
+    function _convertTDOT2WTDOT(uint256 amount) internal returns (uint256 convertAmount) {
+        require(amount != 0, "amount shouldn't be zero");
+        IERC20(WTDOT).safeApprove(WTDOT, amount);
+        return IWTDOT(WTDOT).deposit(amount);
+    }
+
     /// @notice convert the share token of ‘poolId’ pool to LSD token by `convertType`.
     /// @param poolId The index of staking pool.
     /// @param convertType The convert type.
@@ -258,6 +290,18 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
             convertAmount = _convertDOT2TDOT(amount);
             convert.convertedShareType = IERC20(TDOT);
+        } else if (convertType == ConvertType.LCDOT2WTDOT) {
+            require(address(shareType) == LCDOT, "share token must be LcDOT");
+
+            uint256 tdotAmount = _convertLCDOT2TDOT(amount);
+            convertAmount = _convertTDOT2WTDOT(tdotAmount);
+            convert.convertedShareType = IERC20(WTDOT);
+        } else if (convertType == ConvertType.DOT2WTDOT) {
+            require(address(shareType) == DOT, "share token must be DOT");
+
+            uint256 tdotAmount = _convertDOT2TDOT(amount);
+            convertAmount = _convertTDOT2WTDOT(tdotAmount);
+            convert.convertedShareType = IERC20(WTDOT);
         } else {
             revert("unsupported convert");
         }
@@ -295,8 +339,14 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
                 convertedAmount = _convertLCDOT2TDOT(amount);
             } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == LDOT) {
                 convertedAmount = _convertDOT2LDOT(amount);
-            } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == LDOT) {
+            } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == TDOT) {
                 convertedAmount = _convertDOT2TDOT(amount);
+            } else if (address(shareType) == LCDOT && address(convertInfo.convertedShareType) == WTDOT) {
+                uint256 tdotAmount = _convertLCDOT2TDOT(amount);
+                convertedAmount = _convertTDOT2WTDOT(tdotAmount);
+            } else if (address(shareType) == DOT && address(convertInfo.convertedShareType) == WTDOT) {
+                uint256 tdotAmount = _convertDOT2TDOT(amount);
+                convertedAmount = _convertTDOT2WTDOT(tdotAmount);
             } else {
                 revert("unsupported converted share token");
             }
@@ -309,6 +359,16 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
             _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(convertedBeforeShareAmount);
 
             emit Stake(msg.sender, poolId, convertedBeforeShareAmount);
+        } else if (address(shareType) == WTDOT) {
+            // transfer TDOT to this, convert it to WTDOT and stake it
+            IERC20(TDOT).safeTransferFrom(msg.sender, address(this), amount);
+
+            uint256 wtdotAmount = _convertTDOT2WTDOT(amount);
+
+            _totalShares[poolId] = _totalShares[poolId].add(wtdotAmount);
+            _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(wtdotAmount);
+
+            emit Stake(msg.sender, poolId, wtdotAmount);
         } else {
             // if pool hasn't converted, stake it directly
             shareType.safeTransferFrom(msg.sender, address(this), amount);
@@ -337,6 +397,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         require(amount > 0, "cannot unstake 0");
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
+        require(_shares[poolId][msg.sender] >= amount, "share not enough");
 
         _totalShares[poolId] = _totalShares[poolId].sub(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].sub(amount);
@@ -347,6 +408,9 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
             require(convertedAmount != 0, "shouldn't be zero");
 
             convertInfo.convertedShareType.safeTransfer(msg.sender, convertedAmount);
+        } else if (address(shareType) == WTDOT) {
+            uint256 tdotAmount = _convertWTDOT2TDOT(amount);
+            IERC20(TDOT).safeTransfer(msg.sender, tdotAmount);
         } else {
             shareType.safeTransfer(msg.sender, amount);
         }

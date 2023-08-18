@@ -59,13 +59,13 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
 
     /// @inheritdoc Staking
     /// @dev Override the inherited function to define access control.
-    function notifyRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardAmountAdd, uint256 rewardDuration)
+    function updateRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime)
         public
         override
         onlyOwner
         whenNotPaused
     {
-        super.notifyRewardRule(poolId, rewardType, rewardAmountAdd, rewardDuration);
+        super.updateRewardRule(poolId, rewardType, rewardRate, endTime);
     }
 
     /// @inheritdoc Staking

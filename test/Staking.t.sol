@@ -90,27 +90,17 @@ contract StakingTest is Test {
         assertEq(staking.rewardsDeductionRates(0), 500_000_000_000_000_000);
     }
 
-    function test_notifyRewardRule_revertZeroRewardType() public {
+    function test_updateRewardRule_revertZeroRewardType() public {
         vm.expectRevert("reward token is zero address");
-        staking.notifyRewardRule(0, IERC20(address(0)), 0, 0);
+        staking.updateRewardRule(0, IERC20(address(0)), 0, 0);
     }
 
-    function test_notifyRewardRule_revertPoolNotExisted() public {
+    function test_updateRewardRule_revertPoolNotExisted() public {
         vm.expectRevert("pool must be existed");
-        staking.notifyRewardRule(0, rewardTokenA, 0, 0);
+        staking.updateRewardRule(0, rewardTokenA, 0, 0);
     }
 
-    function test_notifyRewardRule_revertZeroDuration() public {
-        staking.addPool(shareTokenA);
-
-        vm.warp(1_689_500_000);
-        assertEq(block.timestamp, 1_689_500_000);
-
-        vm.expectRevert("zero reward duration");
-        staking.notifyRewardRule(0, rewardTokenA, 0, 0);
-    }
-
-    function test_notifyRewardRule_setZeroRewardAddedWhenStartNewPeriod() public {
+    function test_updateRewardRule_works() public {
         staking.addPool(shareTokenA);
 
         vm.warp(1_689_500_000);
@@ -122,127 +112,60 @@ contract StakingTest is Test {
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 0);
 
+        // start a new reward rule
         vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 0, 1_689_501_000);
-        staking.notifyRewardRule(0, rewardTokenA, 0, 1_000);
+        emit RewardRuleUpdate(0, rewardTokenA, 5, 1_689_501_000);
+        staking.updateRewardRule(0, rewardTokenA, 5, 1_689_501_000);
         assertEq(staking.rewardTypes(0).length, 1);
         assertEq(address(staking.rewardTypes(0)[0]), address(rewardTokenA));
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_501_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
-    }
-
-    function test_notifyRewardRule_startNewPeriod() public {
-        staking.addPool(shareTokenA);
-
-        vm.warp(1_689_500_000);
-        assertEq(block.timestamp, 1_689_500_000);
-
-        assertEq(staking.rewardTypes(0).length, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 0);
-
-        vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 5_000, 1_689_501_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 1_000);
-        assertEq(staking.rewardTypes(0).length, 1);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 5_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_501_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
-    }
-
-    function test_notifyRewardRule_revertTooManyRewardType() public {
-        staking.addPool(shareTokenA);
-
-        vm.warp(1_689_500_000);
-        assertEq(block.timestamp, 1_689_500_000);
-
-        assertEq(staking.rewardTypes(0).length, 0);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 1_000);
-        assertEq(staking.rewardTypes(0).length, 1);
-
-        staking.notifyRewardRule(0, rewardTokenB, 5_000_000, 2_000);
-        assertEq(staking.rewardTypes(0).length, 2);
-
-        staking.notifyRewardRule(0, rewardTokenC, 5_000_000, 3_000);
-        assertEq(staking.rewardTypes(0).length, 3);
-
-        vm.expectRevert("too many reward types");
-        staking.notifyRewardRule(0, rewardTokenD, 5_000_000, 4_000);
-    }
-
-    function test_notifyRewardRule_startNewPeriodWhenBeforeRuleExpired() public {
-        staking.addPool(shareTokenA);
-
-        vm.warp(1_689_500_000);
-        assertEq(block.timestamp, 1_689_500_000);
-
-        vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 5_000, 1_689_501_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 1_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 5_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_501_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
-
-        // simulate previous rule expired
-        vm.warp(1_689_502_000);
-        assertEq(block.timestamp, 1_689_502_000);
-        vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 20_000, 1_689_502_100);
-        staking.notifyRewardRule(0, rewardTokenA, 2_000_000, 100);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 20_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_502_100);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
-        assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_502_000);
-    }
-
-    function test_notifyRewardRule_overwritePreviousRule() public {
-        staking.addPool(shareTokenA);
-
-        vm.warp(1_689_500_000);
-        assertEq(block.timestamp, 1_689_500_000);
-
-        vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 5_000, 1_689_501_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 1_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 5_000);
+        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 5);
         assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_501_000);
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_000);
 
         vm.warp(1_689_500_500);
-        assertEq(block.timestamp, 1_689_500_500);
-        assertEq(staking.lastTimeRewardApplicable(0, rewardTokenA), 1_689_500_500);
-        assertEq(staking.rewardPerShare(0, rewardTokenA), 0);
 
-        // simulate adjust remaining time, 0 added reward amount
+        // update the rewardRate for existed rule
         vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 12_500, 1_689_500_700);
-        staking.notifyRewardRule(0, rewardTokenA, 0, 200);
-
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 12_500);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_500_700);
+        emit RewardRuleUpdate(0, rewardTokenA, 10, 1_689_501_000);
+        staking.updateRewardRule(0, rewardTokenA, 10, 1_689_501_000);
+        assertEq(staking.rewardTypes(0).length, 1);
+        assertEq(address(staking.rewardTypes(0)[0]), address(rewardTokenA));
+        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 10);
+        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_501_000);
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_500);
-        assertEq(staking.lastTimeRewardApplicable(0, rewardTokenA), 1_689_500_500);
-        assertEq(staking.rewardPerShare(0, rewardTokenA), 0);
 
-        // simulate adjust remaining time and 0 added reward amount
+        // update the endTime less than block.timestamp
         vm.expectEmit(false, false, false, true);
-        emit RewardRuleUpdate(0, rewardTokenA, 30_000, 1_689_500_600);
-        staking.notifyRewardRule(0, rewardTokenA, 500_000, 100);
-
-        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 30_000);
-        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_500_600);
+        emit RewardRuleUpdate(0, rewardTokenA, 10, 1_689_500_500);
+        staking.updateRewardRule(0, rewardTokenA, 10, 1_689_500_400);
+        assertEq(staking.rewardTypes(0).length, 1);
+        assertEq(address(staking.rewardTypes(0)[0]), address(rewardTokenA));
+        assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 10);
+        assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_500_500);
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
         assertEq(staking.rewardRules(0, rewardTokenA).lastAccumulatedTime, 1_689_500_500);
-        assertEq(staking.lastTimeRewardApplicable(0, rewardTokenA), 1_689_500_500);
-        assertEq(staking.rewardPerShare(0, rewardTokenA), 0);
+    }
+
+    function test_updateRewardRule_revertTooManyRewardType() public {
+        staking.addPool(shareTokenA);
+
+        vm.warp(1_689_500_000);
+        assertEq(block.timestamp, 1_689_500_000);
+
+        assertEq(staking.rewardTypes(0).length, 0);
+        staking.updateRewardRule(0, rewardTokenA, 5_000, 1_689_501_000);
+        assertEq(staking.rewardTypes(0).length, 1);
+
+        staking.updateRewardRule(0, rewardTokenB, 5_000, 1_689_502_000);
+        assertEq(staking.rewardTypes(0).length, 2);
+
+        staking.updateRewardRule(0, rewardTokenC, 5_000, 1_689_503_000);
+        assertEq(staking.rewardTypes(0).length, 3);
+
+        vm.expectRevert("too many reward types");
+        staking.updateRewardRule(0, rewardTokenD, 5_000, 1_689_504_000);
     }
 
     function test_stake_revertZeroAmount() public {
@@ -332,7 +255,7 @@ contract StakingTest is Test {
         assertEq(block.timestamp, 1_689_501_000);
         vm.prank(ALICE);
         rewardTokenA.transfer(address(staking), 5_000_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 2_000);
+        staking.updateRewardRule(0, rewardTokenA, 2_500, 1_689_503_000);
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRate, 2_500);
         assertEq(staking.rewardRules(0, rewardTokenA).endTime, 1_689_503_000);
         assertEq(staking.rewardRules(0, rewardTokenA).rewardRateAccumulated, 0);
@@ -509,7 +432,7 @@ contract StakingTest is Test {
 
         vm.prank(ALICE);
         rewardTokenA.transfer(address(staking), 5_000_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 2_000);
+        staking.updateRewardRule(0, rewardTokenA, 2_500, 1_689_502_000);
 
         vm.startPrank(BOB);
         shareTokenA.approve(address(staking), 2_000_000);
@@ -627,7 +550,7 @@ contract StakingTest is Test {
 
         vm.prank(ALICE);
         rewardTokenA.transfer(address(staking), 5_000_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 2_000);
+        staking.updateRewardRule(0, rewardTokenA, 2_500, 1_689_502_000);
 
         vm.startPrank(BOB);
         shareTokenA.approve(address(staking), 2_000_000);
@@ -688,7 +611,7 @@ contract StakingTest is Test {
 
         vm.prank(ALICE);
         rewardTokenA.transfer(address(staking), 5_000_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 2_000);
+        staking.updateRewardRule(0, rewardTokenA, 2_500, 1_689_502_000);
         staking.setRewardsDeductionRate(0, 200_000_000_000_000_000); // 20%
 
         vm.startPrank(BOB);
@@ -772,7 +695,7 @@ contract StakingTest is Test {
 
         vm.prank(ALICE);
         rewardTokenA.transfer(address(staking), 5_000_000);
-        staking.notifyRewardRule(0, rewardTokenA, 5_000_000, 2_000);
+        staking.updateRewardRule(0, rewardTokenA, 2_500, 1_689_502_000);
 
         vm.startPrank(BOB);
         shareTokenA.approve(address(staking), 2_000_000);
