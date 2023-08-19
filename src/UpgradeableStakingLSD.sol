@@ -70,8 +70,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @notice The LiquidCrowdloan predeploy contract address.
     address public LIQUID_CROWDLOAN;
 
+    /// @notice The Wrapped TDOT (WTDOT) token address.
     address public WTDOT;
 
+    /// @notice The threshold amount of DOT to mint by HOMA.
     uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000; // 5 DOT
 
     /// @dev The LSD convert info info of pool.
@@ -113,10 +115,6 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         __Pausable_init();
         __Ownable_init();
     }
-
-    // function setWTDOT(address wtdot) public onlyOwner {
-    //     WTDOT = wtdot;
-    // }
 
     /// @notice Get the LSD convertion info of `poolId` pool.
     /// @param poolId The index of staking pool.
@@ -246,11 +244,17 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         }
     }
 
+    /// @dev convert `amount` WTDOT token of this contract to TDOT token.
+    /// @param amount The amount of WTDOT to convert.
+    /// @return convertAmount The amount of converted TDOT.
     function _convertWTDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
         return IWTDOT(WTDOT).withdraw(amount);
     }
 
+    /// @dev convert `amount` TDOT token of this contract to WTDOT token.
+    /// @param amount The amount of TDOT to convert.
+    /// @return convertAmount The amount of converted WTDOT.
     function _convertTDOT2WTDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
         IERC20(TDOT).safeApprove(WTDOT, amount);

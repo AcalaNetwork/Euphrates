@@ -44,6 +44,23 @@ The Homa predeploy contract address.
 |---|---|---|
 | _0 | address | undefined |
 
+### HOMA_MINT_THRESHOLD
+
+```solidity
+function HOMA_MINT_THRESHOLD() external view returns (uint256)
+```
+
+The threshold amount of DOT to mint by HOMA.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | undefined |
+
 ### LCDOT
 
 ```solidity
@@ -136,6 +153,23 @@ function TDOT() external view returns (address)
 ```
 
 The tDOT token address.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
+### WTDOT
+
+```solidity
+function WTDOT() external view returns (address)
+```
+
+The Wrapped TDOT (WTDOT) token address.
 
 
 
@@ -272,7 +306,18 @@ Unstake all staked share and claim all unclaimed rewards from staking pool.
 ### initialize
 
 ```solidity
-function initialize(address dot, address lcdot, address ldot, address tdot, address homa, address stableAsset, address liquidCrowdloan) external nonpayable
+function initialize() external nonpayable
+```
+
+
+
+*overwrite initialize() to mute initializer of UpgradeableStakingCommon*
+
+
+### initialize
+
+```solidity
+function initialize(address dot, address lcdot, address ldot, address tdot, address homa, address stableAsset, address liquidCrowdloan, address wtdot) external nonpayable
 ```
 
 The initialize function.
@@ -290,17 +335,7 @@ The initialize function.
 | homa | address | undefined |
 | stableAsset | address | undefined |
 | liquidCrowdloan | address | undefined |
-
-### initialize
-
-```solidity
-function initialize() external nonpayable
-```
-
-
-
-*overwrite initialize() to mute initializer of UpgradeableStakingCommon*
-
+| wtdot | address | undefined |
 
 ### lastTimeRewardApplicable
 
@@ -324,25 +359,6 @@ Get lastest time that can be used to accumulate rewards for `rewardType` reward 
 | Name | Type | Description |
 |---|---|---|
 | _0 | uint256 | Returns timestamp. |
-
-### notifyRewardRule
-
-```solidity
-function notifyRewardRule(uint256 poolId, contract IERC20 rewardType, uint256 rewardAmountAdd, uint256 rewardDuration) external nonpayable
-```
-
-Start or adjust the reward rule of `rewardType` for `poolId` pool.
-
-*Override the inherited function to define access control.*
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| poolId | uint256 | The index of staking pool. |
-| rewardType | contract IERC20 | The reward token. |
-| rewardAmountAdd | uint256 | The reward token added. |
-| rewardDuration | uint256 | The reward accumulate lasting time. |
 
 ### owner
 
@@ -752,6 +768,25 @@ Unstake `amount` share token from `poolId` pool.
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | Returns (success). |
+
+### updateRewardRule
+
+```solidity
+function updateRewardRule(uint256 poolId, contract IERC20 rewardType, uint256 rewardRate, uint256 endTime) external nonpayable
+```
+
+Update the reward rule of `rewardType` for `poolId` pool.
+
+*Override the inherited function to define access control.*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| poolId | uint256 | The index of staking pool. |
+| rewardType | contract IERC20 | The reward token. |
+| rewardRate | uint256 | The reward amount per second. |
+| endTime | uint256 | The end time of fule. |
 
 
 

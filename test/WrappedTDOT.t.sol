@@ -21,10 +21,6 @@ contract WTDOTTest is Test {
         wtdot = new WrappedTDOT(address(tdot));
     }
 
-    function test_getRedeemCurrency() public {
-        assertEq(wtdot.getRedeemCurrency(), address(tdot));
-    }
-
     function test_depositRate_noWTDOTIssued() public {
         assertEq(wtdot.depositRate(), 1e18);
         assertEq(wtdot.totalSupply(), 0);

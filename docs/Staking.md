@@ -134,25 +134,6 @@ Get lastest time that can be used to accumulate rewards for `rewardType` reward 
 |---|---|---|
 | _0 | uint256 | Returns timestamp. |
 
-### notifyRewardRule
-
-```solidity
-function notifyRewardRule(uint256 poolId, contract IERC20 rewardType, uint256 rewardAmountAdd, uint256 rewardDuration) external nonpayable
-```
-
-Start or adjust the reward rule of `rewardType` for `poolId` pool.
-
-*you should override this function to define access control in the derived contract. It can start a new period reward, or add extra reward amount for ative rule, or ajust reward rate by adjust rewardDuration but it cannot slash un-accumulate reward from ative rule.*
-
-#### Parameters
-
-| Name | Type | Description |
-|---|---|---|
-| poolId | uint256 | The index of staking pool. |
-| rewardType | contract IERC20 | The reward token. |
-| rewardAmountAdd | uint256 | The reward token added. |
-| rewardDuration | uint256 | The reward accumulate lasting time. |
-
 ### paidAccumulatedRates
 
 ```solidity
@@ -437,6 +418,25 @@ Withdraw share from staking pool.
 | Name | Type | Description |
 |---|---|---|
 | _0 | bool | Returns (success). |
+
+### updateRewardRule
+
+```solidity
+function updateRewardRule(uint256 poolId, contract IERC20 rewardType, uint256 rewardRate, uint256 endTime) external nonpayable
+```
+
+Update the reward rule of `rewardType` for `poolId` pool.
+
+*you should override this function to define access control in the derived contract.*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| poolId | uint256 | The index of staking pool. |
+| rewardType | contract IERC20 | The reward token. |
+| rewardRate | uint256 | The reward amount per second. |
+| endTime | uint256 | The end time of fule. |
 
 
 
