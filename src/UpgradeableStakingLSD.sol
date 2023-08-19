@@ -72,7 +72,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
     address public WTDOT;
 
-    uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000;
+    uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000; // 5 DOT
 
     /// @dev The LSD convert info info of pool.
     /// (poolId => convertInfo)
@@ -253,7 +253,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
     function _convertTDOT2WTDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
-        IERC20(WTDOT).safeApprove(WTDOT, amount);
+        IERC20(TDOT).safeApprove(WTDOT, amount);
         return IWTDOT(WTDOT).deposit(amount);
     }
 
@@ -407,7 +407,12 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
             uint256 convertedAmount = amount.mul(convertInfo.convertedExchangeRate).div(1e18);
             require(convertedAmount != 0, "shouldn't be zero");
 
-            convertInfo.convertedShareType.safeTransfer(msg.sender, convertedAmount);
+            if (address(convertInfo.convertedShareType) == WTDOT) {
+                uint256 tdotAmount = _convertWTDOT2TDOT(convertedAmount);
+                IERC20(TDOT).safeTransfer(msg.sender, tdotAmount);
+            } else {
+                convertInfo.convertedShareType.safeTransfer(msg.sender, convertedAmount);
+            }
         } else if (address(shareType) == WTDOT) {
             uint256 tdotAmount = _convertWTDOT2TDOT(amount);
             IERC20(TDOT).safeTransfer(msg.sender, tdotAmount);
