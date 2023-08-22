@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
+import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
 import "./MockToken.sol";
 
 contract MockStableAsset is IStableAsset {
@@ -11,11 +12,13 @@ contract MockStableAsset is IStableAsset {
     address public immutable DOT;
     address public immutable LDOT;
     address public immutable TDOT;
+    address public immutable HOMA;
 
-    constructor(address dot, address ldot, address tdot) {
+    constructor(address dot, address ldot, address tdot, address homa) {
         DOT = dot;
         LDOT = ldot;
         TDOT = tdot;
+        HOMA = homa;
     }
 
     function getStableAssetPoolTokens(uint32 poolId) external view returns (bool, address[] memory) {
@@ -69,12 +72,13 @@ contract MockStableAsset is IStableAsset {
         }
 
         uint256 dotAmount = amounts[0];
-        uint256 ldotAmount = amounts[1];
+        uint256 rebasedLdotAmount = amounts[1];
 
-        if (dotAmount == 0 && ldotAmount == 0) {
+        if (dotAmount == 0 && rebasedLdotAmount == 0) {
             revert("MockStableAsset: invalid amounts");
         }
 
+        uint256 ldotAmount = rebasedLdotAmount.mul(1e18).div(IHoma(HOMA).getExchangeRate());
         MockToken(DOT).forceTransfer(msg.sender, address(this), dotAmount);
         MockToken(LDOT).forceTransfer(msg.sender, address(this), ldotAmount);
 

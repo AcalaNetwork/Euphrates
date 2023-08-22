@@ -165,8 +165,12 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
         if (amount.div(2) >= HOMA_MINT_THRESHOLD) {
             uint256 ldotAmount = _convertDOT2LDOT(amount.div(2));
+
+            // convert LDOT amount to rebased LDOT amount as the param
+            // NOTE: the precision of Homa.getExchangeRate is 1e18
+            uint256 ldotParamAmount = ldotAmount.mul(IHoma(HOMA).getExchangeRate()).div(1e18);
             paramAmounts[0] = amount.sub(amount.div(2));
-            paramAmounts[1] = ldotAmount;
+            paramAmounts[1] = ldotParamAmount;
         } else {
             paramAmounts[0] = amount;
             paramAmounts[1] = 0;
@@ -194,9 +198,13 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
         require(valid && assets[1] == LDOT, "invalid stable asset pool");
 
+        // convert LDOT amount to rebased LDOT amount as the param
+        // NOTE: the precision of Homa.getExchangeRate is 1e18
+        uint256 ldotParamAmount = amount.mul(IHoma(HOMA).getExchangeRate()).div(1e18);
+
         uint256[] memory paramAmounts = new uint256[](2);
         paramAmounts[0] = 0;
-        paramAmounts[1] = amount;
+        paramAmounts[1] = ldotParamAmount;
 
         uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
         bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);

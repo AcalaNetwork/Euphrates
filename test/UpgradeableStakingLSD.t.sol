@@ -77,7 +77,7 @@ contract UpgradeableStakingLSDTest is Test {
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
 
         homa = new MockHoma(address(dot), address(ldot));
-        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot));
+        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot), address(homa));
         liquidCrowdloan = new MockLiquidCrowdloan(address(lcdot), address(dot), 1e18);
         wtdot = new WrappedTDOT(address(tdot));
 
@@ -1580,7 +1580,7 @@ contract UpgradeableStakingLSDInitializeTest is Test {
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
         wtdot = new WrappedTDOT(address(tdot));
         homa = new MockHoma(address(dot), address(ldot));
-        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot));
+        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot), address(homa));
         liquidCrowdloan = new MockLiquidCrowdloan(address(lcdot), address(dot), 1e18);
 
         vm.prank(ADMIN);
