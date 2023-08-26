@@ -493,11 +493,11 @@ contract UpgradeableStakingLSDTest is Test {
         vm.expectRevert("share token must be LcDOT");
         staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2LDOT);
         vm.expectRevert("share token must be LcDOT");
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2TDOT);
+        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2WTDOT);
         vm.expectRevert("share token must be DOT");
         staking.convertLSDPool(1, UpgradeableStakingLSD.ConvertType.DOT2LDOT);
         vm.expectRevert("share token must be DOT");
-        staking.convertLSDPool(1, UpgradeableStakingLSD.ConvertType.DOT2TDOT);
+        staking.convertLSDPool(1, UpgradeableStakingLSD.ConvertType.DOT2WTDOT);
         vm.stopPrank();
     }
 
@@ -622,99 +622,6 @@ contract UpgradeableStakingLSDTest is Test {
         vm.revertTo(snapId4);
     }
 
-    function test_convertLSDPool_LCDOT2TDOT() public {
-        lcdot.transfer(ALICE, 1_000_000 ether);
-        vm.prank(ADMIN);
-        staking.addPool(lcdot);
-        assertEq(address(staking.shareTypes(0)), address(lcdot));
-
-        // stake share LCDOT to pool
-        vm.startPrank(ALICE);
-        lcdot.approve(address(staking), 1_000_000 ether);
-        staking.stake(0, 1_000_000 ether);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        vm.stopPrank();
-
-        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
-        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
-
-        // simulate convert LCDOT pool to TDOT pool, and liquidCrowdloan redeem token is DOT
-        uint256 snapId = vm.snapshot();
-        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        vm.prank(ADMIN);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(0, lcdot, tdot, 1_000_000 ether, 900_000 ether);
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2TDOT);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 900_000 ether);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
-        vm.revertTo(snapId);
-
-        // simulate convert LCDOT pool to TDOT pool, and liquidCrowdloan redeem token is LDOT
-        uint256 snapId1 = vm.snapshot();
-        ldot.transfer(address(liquidCrowdloan), 10_000_000 ether);
-        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(ldot));
-        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(10e18);
-        assertEq(liquidCrowdloan.getRedeemCurrency(), address(ldot));
-        assertEq(liquidCrowdloan.redeemExchangeRate(), 10e18);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        vm.prank(ADMIN);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(0, lcdot, tdot, 1_000_000 ether, 1_000_000 ether);
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2TDOT);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 1e18);
-        vm.revertTo(snapId1);
-
-        // simulate convert LCDOT pool to TDOT pool, and liquidCrowdloan redeem token is TDOT
-        uint256 snapId2 = vm.snapshot();
-        tdot.transfer(address(liquidCrowdloan), 100_000_000 ether);
-        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(tdot));
-        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(101e16);
-        assertEq(liquidCrowdloan.getRedeemCurrency(), address(tdot));
-        assertEq(liquidCrowdloan.redeemExchangeRate(), 101e16);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        vm.prank(ADMIN);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(0, lcdot, tdot, 1_000_000 ether, 1_010_000 ether);
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2TDOT);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 1_010_000 ether);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 101e16);
-        vm.revertTo(snapId2);
-    }
-
     function test_convertLSDPool_DOT2LDOT() public {
         dot.transfer(ALICE, 1_000_000 ether);
         vm.prank(ADMIN);
@@ -772,41 +679,6 @@ contract UpgradeableStakingLSDTest is Test {
         vm.expectRevert("already converted");
         staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.DOT2LDOT);
         vm.revertTo(snapId2);
-    }
-
-    function test_convertLSDPool_DOT2TDOT() public {
-        dot.transfer(ALICE, 1_000_000 ether);
-        vm.prank(ADMIN);
-        staking.addPool(dot);
-        assertEq(address(staking.shareTypes(0)), address(dot));
-
-        // stake share DOT to pool
-        vm.startPrank(ALICE);
-        dot.approve(address(staking), 1_000_000 ether);
-        staking.stake(0, 1_000_000 ether);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        vm.stopPrank();
-
-        vm.prank(ADMIN);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(0, dot, tdot, 1_000_000 ether, 900_000 ether);
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.DOT2TDOT);
-        assertEq(staking.totalShares(0), 1_000_000 ether);
-        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
-        assertEq(dot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 900_000 ether);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
-
-        // revert for already converted
-        vm.prank(ADMIN);
-        vm.expectRevert("already converted");
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.DOT2TDOT);
     }
 
     function test_convertLSDPool_LCDOT2WTDOT() public {
@@ -1176,96 +1048,6 @@ contract UpgradeableStakingLSDTest is Test {
         assertEq(staking.shares(1, ALICE), 200_000 ether);
         assertEq(dot.balanceOf(address(staking)), 0);
         assertEq(wtdot.balanceOf(address(staking)), 360_000 ether);
-    }
-
-    function test_stake_afterConvert2TDOT() public {
-        lcdot.transfer(ALICE, 1_000_000 ether);
-        dot.transfer(ALICE, 1_000_000 ether);
-
-        // create pool
-        vm.startPrank(ADMIN);
-        staking.addPool(lcdot);
-        staking.addPool(dot);
-        vm.stopPrank();
-
-        assertEq(staking.totalShares(0), 0);
-        assertEq(staking.shares(0, ALICE), 0);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(staking.totalShares(1), 0);
-        assertEq(staking.shares(1, ALICE), 0);
-        assertEq(dot.balanceOf(address(staking)), 0);
-
-        // ALICE add share to pool#0 and pool#1, which hasn't been converted yet.
-        vm.startPrank(ALICE);
-        lcdot.approve(address(staking), 100_000 ether);
-        dot.approve(address(staking), 100_000 ether);
-        vm.expectEmit(true, false, false, true);
-        emit Stake(ALICE, 0, 100_000 ether);
-        staking.stake(0, 100_000 ether);
-        vm.expectEmit(true, false, false, true);
-        emit Stake(ALICE, 1, 100_000 ether);
-        staking.stake(1, 100_000 ether);
-        vm.stopPrank();
-        assertEq(staking.totalShares(0), 100_000 ether);
-        assertEq(staking.shares(0, ALICE), 100_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 100_000 ether);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
-        assertEq(staking.totalShares(1), 100_000 ether);
-        assertEq(staking.shares(1, ALICE), 100_000 ether);
-        assertEq(dot.balanceOf(address(staking)), 100_000 ether);
-        assertEq(address(staking.convertInfos(1).convertedShareType), address(0));
-        assertEq(staking.convertInfos(1).convertedExchangeRate, 0);
-        assertEq(tdot.balanceOf(address(staking)), 0);
-
-        // convert pool#0 & pool#1 to TDOT pool
-        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
-        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
-        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
-        assertEq(homa.getExchangeRate(), 1e18 / 8);
-        vm.startPrank(ADMIN);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(0, lcdot, tdot, 100_000 ether, 90_000 ether);
-        staking.convertLSDPool(0, UpgradeableStakingLSD.ConvertType.LCDOT2TDOT);
-        vm.expectEmit(false, false, false, true);
-        emit LSDPoolConverted(1, dot, tdot, 100_000 ether, 90_000 ether);
-        staking.convertLSDPool(1, UpgradeableStakingLSD.ConvertType.DOT2TDOT);
-        vm.stopPrank();
-        assertEq(staking.totalShares(0), 100_000 ether);
-        assertEq(staking.shares(0, ALICE), 100_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(0).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
-        assertEq(staking.totalShares(1), 100_000 ether);
-        assertEq(staking.shares(1, ALICE), 100_000 ether);
-        assertEq(dot.balanceOf(address(staking)), 0);
-        assertEq(address(staking.convertInfos(1).convertedShareType), address(tdot));
-        assertEq(staking.convertInfos(1).convertedExchangeRate, 9e17);
-        assertEq(tdot.balanceOf(address(staking)), 180_000 ether);
-
-        // ALICE stake LCDOT to pool#0 after conversion.
-        vm.startPrank(ALICE);
-        lcdot.approve(address(staking), 100_000 ether);
-        vm.expectEmit(true, false, false, true);
-        emit Stake(ALICE, 0, 100_000 ether);
-        staking.stake(0, 100_000 ether);
-        vm.stopPrank();
-        assertEq(staking.totalShares(0), 200_000 ether);
-        assertEq(staking.shares(0, ALICE), 200_000 ether);
-        assertEq(lcdot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 270_000 ether);
-
-        // ALICE stake DOT to pool#1 after conversion.
-        vm.startPrank(ALICE);
-        dot.approve(address(staking), 100_000 ether);
-        vm.expectEmit(true, false, false, true);
-        emit Stake(ALICE, 1, 100_000 ether);
-        staking.stake(1, 100_000 ether);
-        vm.stopPrank();
-        assertEq(staking.totalShares(1), 200_000 ether);
-        assertEq(staking.shares(1, ALICE), 200_000 ether);
-        assertEq(dot.balanceOf(address(staking)), 0);
-        assertEq(tdot.balanceOf(address(staking)), 360_000 ether);
     }
 
     function test_stake_stakeTDOTToWTDOTPool() public {

@@ -42,10 +42,8 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
     enum ConvertType {
         LCDOT2LDOT,
-        LCDOT2TDOT,
-        DOT2LDOT,
-        DOT2TDOT,
         LCDOT2WTDOT,
+        DOT2LDOT,
         DOT2WTDOT
     }
 
@@ -287,21 +285,11 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
             convertAmount = _convertLCDOT2LDOT(amount);
             convert.convertedShareType = IERC20(LDOT);
-        } else if (convertType == ConvertType.LCDOT2TDOT) {
-            require(address(shareType) == LCDOT, "share token must be LcDOT");
-
-            convertAmount = _convertLCDOT2TDOT(amount);
-            convert.convertedShareType = IERC20(TDOT);
         } else if (convertType == ConvertType.DOT2LDOT) {
             require(address(shareType) == DOT, "share token must be DOT");
 
             convertAmount = _convertDOT2LDOT(amount);
             convert.convertedShareType = IERC20(LDOT);
-        } else if (convertType == ConvertType.DOT2TDOT) {
-            require(address(shareType) == DOT, "share token must be DOT");
-
-            convertAmount = _convertDOT2TDOT(amount);
-            convert.convertedShareType = IERC20(TDOT);
         } else if (convertType == ConvertType.LCDOT2WTDOT) {
             require(address(shareType) == LCDOT, "share token must be LcDOT");
 
