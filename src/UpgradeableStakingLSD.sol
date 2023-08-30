@@ -323,10 +323,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         updateRewards(poolId, msg.sender)
         returns (bool)
     {
-        require(amount > 0, "cannot stake 0");
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
 
+        uint256 addedShare;
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
             // if pool has converted, transfer the before share token to this firstly
@@ -352,32 +352,22 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
             }
 
             // must convert the share amount according to the exchange rate of converted pool
-            uint256 convertedBeforeShareAmount = convertedAmount.mul(1e18).div(convertInfo.convertedExchangeRate);
-            require(convertedBeforeShareAmount != 0, "cannot stake 0");
-
-            _totalShares[poolId] = _totalShares[poolId].add(convertedBeforeShareAmount);
-            _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(convertedBeforeShareAmount);
-
-            emit Stake(msg.sender, poolId, convertedBeforeShareAmount);
+            addedShare = convertedAmount.mul(1e18).div(convertInfo.convertedExchangeRate);
         } else if (address(shareType) == WTDOT) {
             // transfer TDOT to this, convert it to WTDOT and stake it
             IERC20(TDOT).safeTransferFrom(msg.sender, address(this), amount);
-
-            uint256 wtdotAmount = _convertTDOT2WTDOT(amount);
-
-            _totalShares[poolId] = _totalShares[poolId].add(wtdotAmount);
-            _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(wtdotAmount);
-
-            emit Stake(msg.sender, poolId, wtdotAmount);
+            addedShare = _convertTDOT2WTDOT(amount);
         } else {
             // if pool hasn't converted, stake it directly
             shareType.safeTransferFrom(msg.sender, address(this), amount);
-
-            _totalShares[poolId] = _totalShares[poolId].add(amount);
-            _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(amount);
-
-            emit Stake(msg.sender, poolId, amount);
+            addedShare = amount;
         }
+
+        require(addedShare > 0, "cannot stake 0");
+        _totalShares[poolId] = _totalShares[poolId].add(addedShare);
+        _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(addedShare);
+
+        emit Stake(msg.sender, poolId, addedShare);
 
         return true;
     }

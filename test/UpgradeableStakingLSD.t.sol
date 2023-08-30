@@ -810,6 +810,8 @@ contract UpgradeableStakingLSDTest is Test {
     }
 
     function test_stake_revertZeroAmount() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
         vm.expectRevert("cannot stake 0");
         staking.stake(0, 0);
     }
