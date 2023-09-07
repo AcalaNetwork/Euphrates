@@ -35,7 +35,7 @@ function addPool(contract IERC20 shareType) external nonpayable
 
 Initialize a staking pool for `shareType`.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `onlyOwner` and `whenNotPaused` access.*
 
 #### Parameters
 
@@ -51,7 +51,7 @@ function claimRewards(uint256 poolId) external nonpayable returns (bool)
 
 Claim all rewards from staking pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.ClaimRewards)`.*
 
 #### Parameters
 
@@ -97,7 +97,7 @@ function exit(uint256 poolId) external nonpayable returns (bool)
 
 Unstake all staked share and claim all unclaimed rewards from staking pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define access.*
 
 #### Parameters
 
@@ -194,7 +194,7 @@ function pause() external nonpayable
 
 Puase the contract by Pausable.
 
-*Only the owner of Ownable can call this function.*
+*Define the `onlyOwner` access.*
 
 
 ### paused
@@ -387,7 +387,7 @@ function setPoolOperationPause(uint256 poolId, enum PoolOperationPausable.Operat
 
 Set the `paused` status of `operation` for `poolId` pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `onlyOwner` and `whenNotPaused` access.*
 
 #### Parameters
 
@@ -405,7 +405,7 @@ function setRewardsDeductionRate(uint256 poolId, uint256 rate) external nonpayab
 
 Set deduction `rate` of claim rewards for `poolId` pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `onlyOwner` and `whenNotPaused` access.*
 
 #### Parameters
 
@@ -467,7 +467,7 @@ function stake(uint256 poolId, uint256 amount) external nonpayable returns (bool
 
 Stake share into staking pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.Stake)` access.*
 
 #### Parameters
 
@@ -528,7 +528,7 @@ function unpause() external nonpayable
 
 Unpuase the contract by Pausable.
 
-*Only the owner of Ownable can call this function.*
+*Define the `onlyOwner` access.*
 
 
 ### unstake
@@ -539,7 +539,7 @@ function unstake(uint256 poolId, uint256 amount) external nonpayable returns (bo
 
 Withdraw share from staking pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.Unstake)`.*
 
 #### Parameters
 
@@ -562,7 +562,7 @@ function updateRewardRule(uint256 poolId, contract IERC20 rewardType, uint256 re
 
 Update the reward rule of `rewardType` for `poolId` pool.
 
-*Override the inherited function to define access control.*
+*Override the inherited function to define `onlyOwner` and `whenNotPaused` access.*
 
 #### Parameters
 

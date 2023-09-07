@@ -23,19 +23,19 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @notice Puase the contract by Pausable.
-    /// @dev Only the owner of Ownable can call this function.
+    /// @dev Define the `onlyOwner` access.
     function pause() external onlyOwner {
         _pause();
     }
 
     /// @notice Unpuase the contract by Pausable.
-    /// @dev Only the owner of Ownable can call this function.
+    /// @dev Define the `onlyOwner` access.
     function unpause() external onlyOwner {
         _unpause();
     }
 
     /// @inheritdoc PoolOperationPausable
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function setPoolOperationPause(uint256 poolId, Operation operation, bool paused)
         public
         override
@@ -46,19 +46,19 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function addPool(IERC20 shareType) public override onlyOwner whenNotPaused {
         super.addPool(shareType);
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function setRewardsDeductionRate(uint256 poolId, uint256 rate) public override onlyOwner whenNotPaused {
         super.setRewardsDeductionRate(poolId, rate);
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function updateRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime)
         public
         override
@@ -69,7 +69,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.Stake)` access.
     function stake(uint256 poolId, uint256 amount)
         public
         virtual
@@ -82,7 +82,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.Unstake)`.
     function unstake(uint256 poolId, uint256 amount)
         public
         virtual
@@ -95,7 +95,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define `whenNotPaused` and `poolOperationNotPaused(poolId, Operation.ClaimRewards)`.
     function claimRewards(uint256 poolId)
         public
         override
@@ -107,7 +107,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
     }
 
     /// @inheritdoc Staking
-    /// @dev Override the inherited function to define access control.
+    /// @dev Override the inherited function to define access.
     function exit(uint256 poolId) external override returns (bool) {
         unstake(poolId, shares(poolId, msg.sender));
         claimRewards(poolId);
