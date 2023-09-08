@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "./PoolOperationPausable.sol";
@@ -14,12 +15,19 @@ import "./Staking.sol";
 /// @dev This contract derived OwnableUpgradeable, PausableUpgradeable and PoolOperationPausable,
 /// and overrides some functions to add access control for these.
 /// This version conforms to the specification for upgradeable contracts.
-contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, Staking, PoolOperationPausable {
+contract UpgradeableStakingCommon is
+    OwnableUpgradeable,
+    PausableUpgradeable,
+    Staking,
+    PoolOperationPausable,
+    ReentrancyGuardUpgradeable
+{
     /// @notice The initialize function.
     /// @dev proxy contract will call this when firstly fetch this contract as the implementation contract.
     function initialize() public virtual initializer {
         __Pausable_init();
         __Ownable_init();
+        __ReentrancyGuard_init();
     }
 
     /// @notice Puase the contract by Pausable.
@@ -76,6 +84,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
         override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Stake)
+        nonReentrant
         returns (bool)
     {
         return super.stake(poolId, amount);
@@ -89,6 +98,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
         override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Unstake)
+        nonReentrant
         returns (bool)
     {
         return super.unstake(poolId, amount);
@@ -101,6 +111,7 @@ contract UpgradeableStakingCommon is OwnableUpgradeable, PausableUpgradeable, St
         override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.ClaimRewards)
+        nonReentrant
         returns (bool)
     {
         return super.claimRewards(poolId);

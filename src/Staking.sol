@@ -295,10 +295,10 @@ abstract contract Staking is IStaking {
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
 
-        shareType.safeTransferFrom(msg.sender, address(this), amount);
-
         _totalShares[poolId] = _totalShares[poolId].add(amount);
         _shares[poolId][msg.sender] = _shares[poolId][msg.sender].add(amount);
+
+        shareType.safeTransferFrom(msg.sender, address(this), amount);
 
         emit Stake(msg.sender, poolId, amount);
 

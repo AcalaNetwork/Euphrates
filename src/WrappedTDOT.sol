@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin-contracts/security/ReentrancyGuard.sol";
 import "solmate/tokens/ERC20.sol";
 
 /// @title IWTDOT Interface
@@ -45,7 +46,7 @@ interface IWTDOT {
 /// @author Acala Developers
 /// @notice To wrap TDOT, TDOT is the LP token of Taiga's StableAsset(DOT-LDOT) pool on Acala. The TDOT holders
 /// can receive TDOT as the LP fee by claim. So WTDOT and DOT do not maintain a 1:1 ratio.
-contract WrappedTDOT is IWTDOT, ERC20 {
+contract WrappedTDOT is IWTDOT, ERC20, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -61,12 +62,10 @@ contract WrappedTDOT is IWTDOT, ERC20 {
     /// @inheritdoc IWTDOT
     function depositRate() public view returns (uint256) {
         uint256 tdotAmount = IERC20(tdot).balanceOf(address(this));
-        uint256 wtdotAmount = this.totalSupply();
+        uint256 wtdotAmount = totalSupply;
 
-        if (wtdotAmount == 0) {
+        if (wtdotAmount == 0 || tdotAmount == 0) {
             return 1e18;
-        } else if (tdotAmount == 0) {
-            return 0;
         } else {
             return wtdotAmount.mul(1e18).div(tdotAmount);
         }

@@ -45,7 +45,7 @@ contract WTDOTTest is Test {
         MockToken(address(tdot)).forceTransfer(address(wtdot), ALICE, 100 ether);
         assertEq(wtdot.totalSupply(), 100 ether);
         assertEq(tdot.balanceOf(address(wtdot)), 0);
-        assertEq(wtdot.depositRate(), 0);
+        assertEq(wtdot.depositRate(), 1e18);
     }
 
     function test_withdrawRate_noWTDOTIssued() public {
@@ -73,24 +73,6 @@ contract WTDOTTest is Test {
         assertEq(wtdot.totalSupply(), 100 ether);
         assertEq(tdot.balanceOf(address(wtdot)), 0);
         assertEq(wtdot.withdrawRate(), 0);
-    }
-
-    function test_deposit_revertInvalidWTDOTAmount() public {
-        vm.startPrank(ALICE);
-        tdot.approve(address(wtdot), 100 ether);
-        vm.expectRevert("WTDOT: invalid WTDOT amount");
-        wtdot.deposit(0);
-
-        wtdot.deposit(10 ether);
-        assertEq(wtdot.totalSupply(), 10 ether);
-        assertEq(tdot.balanceOf(address(wtdot)), 10 ether);
-
-        // mock no tdot hold
-        MockToken(address(tdot)).forceTransfer(address(wtdot), BOB, 10 ether);
-        assertEq(wtdot.totalSupply(), 10 ether);
-        assertEq(tdot.balanceOf(address(wtdot)), 0);
-        vm.expectRevert("WTDOT: invalid WTDOT amount");
-        wtdot.deposit(90);
     }
 
     function test_deposit_works() public {

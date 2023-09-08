@@ -112,6 +112,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
 
         __Pausable_init();
         __Ownable_init();
+        __ReentrancyGuard_init();
     }
 
     /// @notice Get the LSD convertion info of `poolId` pool.
@@ -321,6 +322,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Stake)
         updateRewards(poolId, msg.sender)
+        nonReentrant
         returns (bool)
     {
         IERC20 shareType = shareTypes(poolId);
@@ -382,6 +384,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Unstake)
         updateRewards(poolId, msg.sender)
+        nonReentrant
         returns (bool)
     {
         require(amount > 0, "cannot unstake 0");
