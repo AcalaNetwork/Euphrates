@@ -1,4 +1,5 @@
-# LSD-staking
+# Euphrates
+contracts for LST staking of Acala
 
 ## Prerequisites
 install foundry:  

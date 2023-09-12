@@ -5,7 +5,7 @@ import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 /// @title IStaking Interface
 /// @author Acala Developers
-/// @notice You can use this integrate Acala LSD staking into your contract.
+/// @notice You can use this integrate Acala LST staking into your contract.
 interface IStaking {
     /// @notice Claim reward from staking pool.
     /// @param sender The sender of the transaction.

@@ -9,12 +9,12 @@ import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
 import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol";
-import "../src/UpgradeableStakingLSD.sol";
+import "../src/UpgradeableStakingLST.sol";
 
-contract DeployUpgradeableStakingLSDOnAcala is Script {
-    UpgradeableStakingLSD implementationV1;
+contract DeployUpgradeableStakingLSTOnAcala is Script {
+    UpgradeableStakingLST implementationV1;
     TransparentUpgradeableProxy proxy;
-    UpgradeableStakingLSD wrappedProxyV1;
+    UpgradeableStakingLST wrappedProxyV1;
     ProxyAdmin admin;
 
     address public constant DOT = 0x0000000000000000000100000000000000000002;
@@ -31,20 +31,20 @@ contract DeployUpgradeableStakingLSDOnAcala is Script {
         admin = new ProxyAdmin();
 
         // deploy implementation contract
-        implementationV1 = new UpgradeableStakingLSD();
+        implementationV1 = new UpgradeableStakingLST();
 
         // deploy proxy contract and fetch it as implementation, and specify admin as the owner of proxy admin
         proxy = new TransparentUpgradeableProxy(address(implementationV1), address(admin), "");
 
         // wrap in ABI to support easier calls
-        wrappedProxyV1 = UpgradeableStakingLSD(address(proxy));
+        wrappedProxyV1 = UpgradeableStakingLST(address(proxy));
 
         // initialize
         implementationV1.initialize(DOT, LCDOT, LDOT, TDOT, HOMA, STABLE_ASSET, LIQUID_CROWDLOAN, WTDOT);
         assert(wrappedProxyV1.owner() == msg.sender);
 
         // new implementation and upgrade
-        // UpgradeableStakingLSDV2 implementationV2 = new UpgradeableStakingLSDV2();
+        // UpgradeableStakingLSTV2 implementationV2 = new UpgradeableStakingLSTV2();
         // admin.upgrade(proxy, address(implementationV2));
     }
 }

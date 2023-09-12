@@ -4,7 +4,7 @@
 
 > IStaking Interface
 
-You can use this integrate Acala LSD staking into your contract.
+You can use this integrate Acala LST staking into your contract.
 
 
 

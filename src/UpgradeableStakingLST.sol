@@ -10,22 +10,22 @@ import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol"
 import "./UpgradeableStakingCommon.sol";
 import "./WrappedTDOT.sol";
 
-/// @title UpgradeableStakingLSD Contract
+/// @title UpgradeableStakingLST Contract
 /// @author Acala Developers
-/// @notice This staking contract can convert the share token to it's LSD. It just support LcDOT token on Acala.
-/// @dev After pool's share is converted into its LSD token, this pool can be staked with LSD token and before token both.
+/// @notice This staking contract can convert the share token to it's LST. It just support LcDOT token on Acala.
+/// @dev After pool's share is converted into its LST token, this pool can be staked with LST token and before token both.
 /// This version conforms to the specification for upgradeable contracts.
-contract UpgradeableStakingLSD is UpgradeableStakingCommon {
+contract UpgradeableStakingLST is UpgradeableStakingCommon {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    /// @notice The pool's share token is converted into its LSD token.
+    /// @notice The pool's share token is converted into its LST token.
     /// @param poolId The pool id.
     /// @param beforeShareType The share token before converted.
     /// @param afterShareType The share token after converted.
     /// @param beforeShareTokenAmount The share token amount before converted.
     /// @param afterShareTokenAmount The share token amount after converted.
-    event LSDPoolConverted(
+    event LSTPoolConverted(
         uint256 poolId,
         IERC20 beforeShareType,
         IERC20 afterShareType,
@@ -34,7 +34,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     );
 
     struct ConvertInfo {
-        // The converted LSD token.
+        // The converted LST token.
         IERC20 convertedShareType;
         // This is a snapshot of the ratio between share amount to new share token amount at the moment of conversion. 1e18 is 1:1
         uint256 convertedExchangeRate;
@@ -74,7 +74,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
     /// @notice The threshold amount of DOT to mint by HOMA.
     uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000; // 5 DOT
 
-    /// @dev The LSD convert info info of pool.
+    /// @dev The LST convert info info of pool.
     /// (poolId => convertInfo)
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
@@ -115,7 +115,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         __ReentrancyGuard_init();
     }
 
-    /// @notice Get the LSD convertion info of `poolId` pool.
+    /// @notice Get the LST convertion info of `poolId` pool.
     /// @param poolId The index of staking pool.
     /// @return Returns convert info.
     function convertInfos(uint256 poolId) public view returns (ConvertInfo memory) {
@@ -268,10 +268,10 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         return IWTDOT(WTDOT).deposit(amount);
     }
 
-    /// @notice convert the share token of ‘poolId’ pool to LSD token by `convertType`.
+    /// @notice convert the share token of ‘poolId’ pool to LST token by `convertType`.
     /// @param poolId The index of staking pool.
     /// @param convertType The convert type.
-    function convertLSDPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
+    function convertLSTPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
         ConvertInfo storage convert = _convertInfos[poolId];
         require(address(convert.convertedShareType) == address(0), "already converted");
@@ -310,7 +310,7 @@ contract UpgradeableStakingLSD is UpgradeableStakingCommon {
         uint256 exchangeRate = convertAmount.mul(1e18).div(amount);
         require(exchangeRate != 0, "exchange rate shouldn't be zero");
         convert.convertedExchangeRate = exchangeRate;
-        emit LSDPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
+        emit LSTPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
     }
 
     /// @notice Stake `amount` share token to `poolId` pool. If pool has been converted, still stake before share token.

@@ -1,5 +1,5 @@
 {
-  "name": "lsd-staking",
+  "name": "euphrates",
   "version": "1.0.0",
   "description": "## Prerequisites install foundry:   ``` # clone the repository git clone https://github.com/foundry-rs/foundry.git cd foundry # install Forge + Cast cargo install --path ./cli --profile local --bins --force # install Anvil cargo install --path ./anvil --profile local --force # install Chisel cargo install --path ./chisel --profile local --force ```",
   "main": "index.js",
@@ -9,7 +9,9 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "forge build --force",
+    "test": "forge test -vvvv",
+    "doc": "npx hardhat dodoc"
   },
   "author": "",
   "license": "ISC",

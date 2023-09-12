@@ -1,12 +1,12 @@
-# UpgradeableStakingLSD
+# UpgradeableStakingLST
 
 *Acala Developers*
 
-> UpgradeableStakingLSD Contract
+> UpgradeableStakingLST Contract
 
-This staking contract can convert the share token to it&#39;s LSD. It just support LcDOT token on Acala.
+This staking contract can convert the share token to it&#39;s LST. It just support LcDOT token on Acala.
 
-*After pool&#39;s share is converted into its LSD token, this pool can be staked with LSD token and before token both. This version conforms to the specification for upgradeable contracts.*
+*After pool&#39;s share is converted into its LST token, this pool can be staked with LST token and before token both. This version conforms to the specification for upgradeable contracts.*
 
 ## Methods
 
@@ -221,10 +221,10 @@ Claim all rewards from staking pool.
 ### convertInfos
 
 ```solidity
-function convertInfos(uint256 poolId) external view returns (struct UpgradeableStakingLSD.ConvertInfo)
+function convertInfos(uint256 poolId) external view returns (struct UpgradeableStakingLST.ConvertInfo)
 ```
 
-Get the LSD convertion info of `poolId` pool.
+Get the LST convertion info of `poolId` pool.
 
 
 
@@ -238,15 +238,15 @@ Get the LSD convertion info of `poolId` pool.
 
 | Name | Type | Description |
 |---|---|---|
-| _0 | UpgradeableStakingLSD.ConvertInfo | Returns convert info. |
+| _0 | UpgradeableStakingLST.ConvertInfo | Returns convert info. |
 
-### convertLSDPool
+### convertLSTPool
 
 ```solidity
-function convertLSDPool(uint256 poolId, enum UpgradeableStakingLSD.ConvertType convertType) external nonpayable
+function convertLSTPool(uint256 poolId, enum UpgradeableStakingLST.ConvertType convertType) external nonpayable
 ```
 
-convert the share token of ‘poolId’ pool to LSD token by `convertType`.
+convert the share token of ‘poolId’ pool to LST token by `convertType`.
 
 
 
@@ -255,7 +255,7 @@ convert the share token of ‘poolId’ pool to LSD token by `convertType`.
 | Name | Type | Description |
 |---|---|---|
 | poolId | uint256 | The index of staking pool. |
-| convertType | enum UpgradeableStakingLSD.ConvertType | The convert type. |
+| convertType | enum UpgradeableStakingLST.ConvertType | The convert type. |
 
 ### earned
 
@@ -827,13 +827,13 @@ event Initialized(uint8 version)
 |---|---|---|
 | version  | uint8 | undefined |
 
-### LSDPoolConverted
+### LSTPoolConverted
 
 ```solidity
-event LSDPoolConverted(uint256 poolId, contract IERC20 beforeShareType, contract IERC20 afterShareType, uint256 beforeShareTokenAmount, uint256 afterShareTokenAmount)
+event LSTPoolConverted(uint256 poolId, contract IERC20 beforeShareType, contract IERC20 afterShareType, uint256 beforeShareTokenAmount, uint256 afterShareTokenAmount)
 ```
 
-The pool&#39;s share token is converted into its LSD token.
+The pool&#39;s share token is converted into its LST token.
 
 
 
