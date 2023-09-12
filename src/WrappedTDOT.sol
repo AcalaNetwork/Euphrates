@@ -55,7 +55,7 @@ contract WrappedTDOT is IWTDOT, ERC20, ReentrancyGuard {
 
     /// @notice Deploys WTDOT token.
     /// @param tdotAddr The token address of TDOT.
-    constructor(address tdotAddr) ERC20("Wrapped TDOT", "WTDOT", 12) {
+    constructor(address tdotAddr) ERC20("Wrapped TDOT", "WTDOT", 10) {
         tdot = tdotAddr;
     }
 
