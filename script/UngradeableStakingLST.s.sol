@@ -10,10 +10,12 @@ import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
 import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "@AcalaNetwork/predeploy-contracts/liquid-crowdloan/ILiquidCrowdloan.sol";
 import "../src/UpgradeableStakingLST.sol";
+import "../src/UpgradeableStakingLSTV2.sol";
 
 contract DeployUpgradeableStakingLSTOnAcala is Script {
     UpgradeableStakingLST implementationV1;
-    TransparentUpgradeableProxy proxy;
+    UpgradeableStakingLSTV2 implementationV2;
+    ITransparentUpgradeableProxy proxy;
     UpgradeableStakingLST wrappedProxyV1;
     ProxyAdmin admin;
 
@@ -34,7 +36,9 @@ contract DeployUpgradeableStakingLSTOnAcala is Script {
         implementationV1 = new UpgradeableStakingLST();
 
         // deploy proxy contract and fetch it as implementation, and specify admin as the owner of proxy admin
-        proxy = new TransparentUpgradeableProxy(address(implementationV1), address(admin), "");
+        proxy = ITransparentUpgradeableProxy(
+            address(new TransparentUpgradeableProxy(address(implementationV1), address(admin), ""))
+        );
 
         // wrap in ABI to support easier calls
         wrappedProxyV1 = UpgradeableStakingLST(address(proxy));
@@ -44,7 +48,7 @@ contract DeployUpgradeableStakingLSTOnAcala is Script {
         assert(wrappedProxyV1.owner() == msg.sender);
 
         // new implementation and upgrade
-        // UpgradeableStakingLSTV2 implementationV2 = new UpgradeableStakingLSTV2();
-        // admin.upgrade(proxy, address(implementationV2));
+        implementationV2 = new UpgradeableStakingLSTV2();
+        admin.upgrade(proxy, address(implementationV2));
     }
 }
