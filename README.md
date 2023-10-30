@@ -33,3 +33,7 @@ cargo install --path ./chisel --profile local --force
 ## deployment
 Can use `forge create` to deploy contract, that's simple but has some some limitations, you can refer to the [forge create documentation](https://book.getfoundry.sh/reference/forge/forge-create)
 Alternatively, use `forge script` to run the deployment scripts.
+
+## Bug Bounty Program
+
+Please submit all the security issues to our [Bug Bounty Program](https://immunefi.com/bounty/euphrates/).
