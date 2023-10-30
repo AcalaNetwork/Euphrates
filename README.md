@@ -1,6 +1,15 @@
 # Euphrates
 contracts for LST staking of Acala
 
+## Deployed Contract
+
+| Contract Name | Contract Address | Code Verify |
+| --- | --- | --- |
+| WrappedTDOT | 0xe1bD4306A178f86a9214c39ABCD53D021bEDb0f9 | [blockscout](https://blockscout.acala.network/address/0xe1bD4306A178f86a9214c39ABCD53D021bEDb0f9/contracts#address-tabs) |
+| ProxyAdmin | 0x3F86533602Cae17d10173269ecB6Efce1d68D5ec | [blockscout](https://blockscout.acala.network/address/0x3F86533602Cae17d10173269ecB6Efce1d68D5ec/contracts#address-tabs) |
+| TransparentUpgradeableProxy | 0x7Fe92EC600F15cD25253b421bc151c51b0276b7D | [blockscout](https://blockscout.acala.network/address/0x7Fe92EC600F15cD25253b421bc151c51b0276b7D/contracts#address-tabs) |
+| UpgradeableStakingLST | 0xBe44E43fE3817629d0cfA8CC0b73101d0F0FDE56 | [blockscout](https://blockscout.acala.network/address/0xBe44E43fE3817629d0cfA8CC0b73101d0F0FDE56/contracts#address-tabs) |
+
 ## Prerequisites
 install foundry:  
 ```
