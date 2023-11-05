@@ -272,12 +272,33 @@ abstract contract Staking is IStaking {
         require(_rewardTypes[poolId].length <= MAX_REWARD_TYPES, "too many reward types");
 
         RewardRule storage rewardRule = _rewardRules[poolId][rewardType];
-        rewardRule.rewardRate = rewardRate;
+
+        // rewards has accumulated to lastTimeRewardApplicable at previous updateRewards, so reset lastAccumulatedTime to now
         rewardRule.lastAccumulatedTime = block.timestamp;
+
+        uint256 remainerReward;
+        // If there are already rewards that have not yet ended, calculate the remainerReward that have not yet been accumulated.
+        if (rewardRule.endTime > rewardRule.lastAccumulatedTime) {
+            remainerReward = rewardRule.endTime.sub(rewardRule.lastAccumulatedTime).mul(rewardRule.rewardRate);
+        }
+
+        // reset endTime and rewardRate.
         if (block.timestamp > endTime) {
             rewardRule.endTime = block.timestamp;
         } else {
             rewardRule.endTime = endTime;
+        }
+        rewardRule.rewardRate = rewardRate;
+
+        // calculate the newReward amount for the updated rewardRule.
+        uint256 newReward = rewardRule.endTime.sub(rewardRule.lastAccumulatedTime).mul(rewardRule.rewardRate);
+
+        if (remainerReward < newReward) {
+            // if remainerReward is less than newReward, need transfer the gap from msg.sender to contract.
+            rewardType.safeTransferFrom(msg.sender, address(this), newReward.sub(remainerReward));
+        } else if (remainerReward > newReward) {
+            // if remainerReward is greater than newReward, return the surplus part to msg.sender.
+            rewardType.safeTransfer(msg.sender, remainerReward.sub(newReward));
         }
 
         emit RewardRuleUpdate(poolId, rewardType, rewardRule.rewardRate, rewardRule.endTime);

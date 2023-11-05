@@ -23,9 +23,24 @@ contract UpgradeableStakingCommonTest is Test {
     event Stake(address indexed account, uint256 poolId, uint256 amount);
 
     function setUp() public {
-        shareTokenA = new ERC20PresetFixedSupply("ShareTokenA", "STA", 10_000_000, ALICE);
-        shareTokenB = new ERC20PresetFixedSupply("ShareTokenB", "STB", 10_000_000, ALICE);
-        rewardTokenA = new ERC20PresetFixedSupply("rewardTokenA", "RTA", 10_000_000, ALICE);
+        shareTokenA = new ERC20PresetFixedSupply(
+            "ShareTokenA",
+            "STA",
+            10_000_000,
+            ALICE
+        );
+        shareTokenB = new ERC20PresetFixedSupply(
+            "ShareTokenB",
+            "STB",
+            10_000_000,
+            ALICE
+        );
+        rewardTokenA = new ERC20PresetFixedSupply(
+            "rewardTokenA",
+            "RTA",
+            10_000_000,
+            ALICE
+        );
         staking = new UpgradeableStakingCommon();
         vm.prank(ADMIN);
         staking.initialize();
@@ -89,8 +104,11 @@ contract UpgradeableStakingCommonTest is Test {
         staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
 
         // only owner can update reward rule
-        vm.prank(ADMIN);
-        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
+        vm.prank(ALICE);
+        rewardTokenA.transfer(ADMIN, 10_000_000);
+        vm.startPrank(ADMIN);
+        rewardTokenA.approve(address(staking), type(uint256).max);
+        staking.updateRewardRule(0, rewardTokenA, 10, block.timestamp + 7 days);
         assertEq(staking.rewardTypes(0).length, 1);
     }
 
@@ -138,8 +156,13 @@ contract UpgradeableStakingCommonTest is Test {
 
         staking.setRewardsDeductionRate(0, 1e18 / 10);
         assertEq(staking.rewardsDeductionRates(0), 1e18 / 10);
+        vm.stopPrank();
 
-        staking.updateRewardRule(0, rewardTokenA, 500, block.timestamp + 30 days);
+        vm.prank(ALICE);
+        rewardTokenA.transfer(ADMIN, 10_000_000);
+        vm.startPrank(ADMIN);
+        rewardTokenA.approve(address(staking), type(uint256).max);
+        staking.updateRewardRule(0, rewardTokenA, 10, block.timestamp + 7 days);
         assertEq(staking.rewardTypes(0).length, 1);
         vm.stopPrank();
 
