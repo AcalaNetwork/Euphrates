@@ -66,15 +66,18 @@ contract UpgradeableStakingLSTTest is Test {
     IERC20 public ldot;
     IERC20 public lcdot;
     IERC20 public tdot;
+    IERC20 public aca;
     WrappedTDOT public wtdot;
     address public ADMIN = address(0x1111);
     address public ALICE = address(0x2222);
+    address public BOB = address(0x3333);
 
     function setUp() public {
         dot = IERC20(address(new MockToken("Acala DOT", "DOT", 1_000_000_000 ether)));
         lcdot = IERC20(address(new MockToken("Acala LcDOT", "LcDOT", 1_000_000_000 ether)));
         ldot = IERC20(address(new MockToken("Acala LDOT", "LDOT", 1_000_000_000 ether)));
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
+        aca = IERC20(address(new MockToken("Acala", "ACA", 1_000_000_000 ether)));
 
         homa = new MockHoma(address(dot), address(ldot));
         stableAsset = new MockStableAsset(
@@ -102,6 +105,108 @@ contract UpgradeableStakingLSTTest is Test {
             address(liquidCrowdloan),
             address(wtdot)
         );
+    }
+
+    function test_getDeductionInstantlyByAdvancedStake() public {
+        // 1. initialize states
+        vm.warp(1_689_500_000);
+        aca.transfer(ADMIN, 1_000_000 ether);
+        dot.transfer(ALICE, 1_000 ether);
+        dot.transfer(BOB, 1_000 ether);
+        address[] memory subAccounts = new address[](1000);
+        uint256 subStakeAmount = 1 ether;
+        for (uint256 i = 0; i < subAccounts.length; i++) {
+            subAccounts[i] = address(uint160(i + 1));
+            dot.transfer(subAccounts[i], subStakeAmount);
+        }
+
+        vm.startPrank(ADMIN);
+        staking.addPool(dot);
+        aca.approve(address(staking), 1_000_000 ether);
+        staking.updateRewardRule(0, aca, 1_000 ether, 1_689_501_000);
+        staking.setRewardsDeductionRate(0, uint256(1e18) / 5); // 20% deduction
+        vm.stopPrank();
+
+        vm.startPrank(ALICE);
+        dot.approve(address(staking), 1_000 ether);
+        staking.stake(0, 1_000 ether);
+        vm.stopPrank();
+
+        vm.warp(1_689_500_100);
+        assertEq(staking.earned(0, ALICE, aca), 100_000 ether);
+
+        // simulate stake share before deduction generate to gain from deduction restribute
+        uint256 snapId = vm.snapshot();
+        vm.startPrank(BOB);
+        dot.approve(address(staking), 1_000 ether);
+        staking.stake(0, 1_000 ether);
+        vm.stopPrank();
+
+        assertEq(staking.earned(0, BOB, aca), 0 ether);
+        vm.prank(ALICE);
+        staking.claimRewards(0);
+
+        // decution is 20_000 ether, BOB get 10_000 ether from deduction redistribution
+        assertEq(staking.earned(0, BOB, aca), 10_000 ether);
+
+        // BOB claim reward to receive 8_000 ether
+        assertEq(aca.balanceOf(BOB), 0 ether);
+        vm.prank(BOB);
+        staking.claimRewards(0);
+        assertEq(aca.balanceOf(BOB), 8_000 ether);
+        vm.revertTo(snapId);
+
+        // simulate stake by sub accounts seperately before deduction generate
+        // stake by 1000 accounts, which stake 1 ether
+        for (uint256 i = 0; i < subAccounts.length; i++) {
+            vm.startPrank(subAccounts[i]);
+            dot.approve(address(staking), subStakeAmount);
+            staking.stake(0, subStakeAmount);
+            vm.stopPrank();
+
+            assertEq(staking.shares(0, subAccounts[i]), subStakeAmount);
+            assertEq(staking.earned(0, subAccounts[i], aca), 0 ether);
+        }
+
+        vm.prank(ALICE);
+        staking.claimRewards(0);
+
+        uint256 totalEarned;
+        for (uint256 i = 0; i < subAccounts.length; i++) {
+            totalEarned = totalEarned + staking.earned(0, subAccounts[i], aca);
+        }
+        assertEq(totalEarned, 10_000 ether);
+        console.log("total earned deduction: ", totalEarned);
+
+        uint256 loop = 20;
+        uint256[] memory receivedProfitByLoop = new uint256[](loop);
+
+        for (uint256 j = 0; j < loop; j++) {
+            for (uint256 i = 0; i < subAccounts.length; i++) {
+                uint256 beforeReceived = aca.balanceOf(subAccounts[i]);
+                vm.prank(subAccounts[i]);
+                staking.claimRewards(0);
+                uint256 afterReceived = aca.balanceOf(subAccounts[i]);
+                receivedProfitByLoop[j] += afterReceived - beforeReceived;
+            }
+
+            console.log(
+                "received profit which all 1000 sub accounts seperately claim reward once at %s turns is %s",
+                j + 1,
+                receivedProfitByLoop[j]
+            );
+
+            uint256 totalReceivedProfit;
+            for (uint256 i = 0; i <= j; i++) {
+                totalReceivedProfit += receivedProfitByLoop[i];
+            }
+
+            console.log(
+                "total received profit which all 1000 sub accounts seperately claim reward once by %s turns is %s",
+                j + 1,
+                totalReceivedProfit
+            );
+        }
     }
 
     function test_redeemLCDOT_revertZeroAmount() public {
