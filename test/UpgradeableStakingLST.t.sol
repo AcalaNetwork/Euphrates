@@ -77,8 +77,17 @@ contract UpgradeableStakingLSTTest is Test {
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
 
         homa = new MockHoma(address(dot), address(ldot));
-        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot), address(homa));
-        liquidCrowdloan = new MockLiquidCrowdloan(address(lcdot), address(dot), 1e18);
+        stableAsset = new MockStableAsset(
+            address(dot),
+            address(ldot),
+            address(tdot),
+            address(homa)
+        );
+        liquidCrowdloan = new MockLiquidCrowdloan(
+            address(lcdot),
+            address(dot),
+            1e18
+        );
         wtdot = new WrappedTDOT(address(tdot));
 
         staking = new UpgradeableStakingLSTHarness();
@@ -824,12 +833,13 @@ contract UpgradeableStakingLSTTest is Test {
     function test_stake_works() public {
         vm.warp(1_689_500_000);
 
-        dot.transfer(address(staking), 1_000_000 ether);
+        dot.transfer(ADMIN, 1_000_000 ether);
         lcdot.transfer(ALICE, 1_000_000 ether);
 
         // create pool
         vm.startPrank(ADMIN);
         staking.addPool(lcdot);
+        dot.approve(address(staking), 1_000_000 ether);
         staking.updateRewardRule(0, dot, 500 ether, 1_689_502_000);
         vm.stopPrank();
 
@@ -882,7 +892,7 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(staking.rewards(0, ALICE, dot), 0);
         assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
         assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
         assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
@@ -903,11 +913,11 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(ldot.balanceOf(address(staking)), 5_600_000 ether);
         assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
         assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
-        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
-        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
 
         // simulate the exchange rate of LDOT to DOT from 8:1 increases to 5:1
@@ -1108,12 +1118,13 @@ contract UpgradeableStakingLSTTest is Test {
     function test_unstake_works() public {
         vm.warp(1_689_500_000);
 
-        dot.transfer(address(staking), 1_000_000 ether);
+        dot.transfer(ADMIN, 1_000_000 ether);
         lcdot.transfer(ALICE, 1_000_000 ether);
 
         // create pool
         vm.startPrank(ADMIN);
         staking.addPool(lcdot);
+        dot.approve(address(staking), 1_000_000 ether);
         staking.updateRewardRule(0, dot, 500 ether, 1_689_502_000);
         vm.stopPrank();
 
@@ -1162,11 +1173,11 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(ldot.balanceOf(address(staking)), 0);
         assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
         assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
-        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
-        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
 
         // convert pool to LDOT
@@ -1185,11 +1196,11 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(ldot.balanceOf(address(staking)), 1_200_000 ether);
         assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
         assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
-        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
-        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
 
         // ALICE unstake some share
@@ -1205,11 +1216,11 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(ldot.balanceOf(address(staking)), 400_000 ether);
         assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
         assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
-        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
-        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
 
         // ALICE exit
@@ -1226,11 +1237,11 @@ contract UpgradeableStakingLSTTest is Test {
         assertEq(ldot.balanceOf(address(staking)), 0);
         assertEq(staking.rewards(0, ALICE, dot), 0);
         assertEq(staking.earned(0, ALICE, dot), 0);
-        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
-        assertEq(staking.rewardPerShare(0, dot), 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
         assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
-        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 500 ether * 1000 * 1e18 / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
         assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
     }
 
@@ -1364,8 +1375,17 @@ contract UpgradeableStakingLSTInitializeTest is Test {
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
         wtdot = new WrappedTDOT(address(tdot));
         homa = new MockHoma(address(dot), address(ldot));
-        stableAsset = new MockStableAsset(address(dot), address(ldot), address(tdot), address(homa));
-        liquidCrowdloan = new MockLiquidCrowdloan(address(lcdot), address(dot), 1e18);
+        stableAsset = new MockStableAsset(
+            address(dot),
+            address(ldot),
+            address(tdot),
+            address(homa)
+        );
+        liquidCrowdloan = new MockLiquidCrowdloan(
+            address(lcdot),
+            address(dot),
+            1e18
+        );
 
         vm.prank(ADMIN);
         staking = new UpgradeableStakingLST();
