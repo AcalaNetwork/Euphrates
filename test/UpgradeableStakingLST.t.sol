@@ -176,13 +176,14 @@ contract UpgradeableStakingLSTTest is Test {
             totalEarned = totalEarned + staking.earned(0, subAccounts[i], aca);
         }
         assertEq(totalEarned, 10_000 ether);
-        console.log("total earned deduction: ", totalEarned);
+        console.log("total earned deduction which generate by ALICE: ", totalEarned);
 
         uint256 loop = 20;
         uint256[] memory receivedProfitByLoop = new uint256[](loop);
 
         for (uint256 j = 0; j < loop; j++) {
             for (uint256 i = 0; i < subAccounts.length; i++) {
+                // each account claimRewards to generate new deduction
                 uint256 beforeReceived = aca.balanceOf(subAccounts[i]);
                 vm.prank(subAccounts[i]);
                 staking.claimRewards(0);
@@ -190,23 +191,38 @@ contract UpgradeableStakingLSTTest is Test {
                 receivedProfitByLoop[j] += afterReceived - beforeReceived;
             }
 
-            console.log(
-                "received profit which all 1000 sub accounts seperately claim reward once at %s turns is %s",
-                j + 1,
-                receivedProfitByLoop[j]
-            );
-
             uint256 totalReceivedProfit;
             for (uint256 i = 0; i <= j; i++) {
                 totalReceivedProfit += receivedProfitByLoop[i];
             }
 
             console.log(
-                "total received profit which all 1000 sub accounts seperately claim reward once by %s turns is %s",
-                j + 1,
-                totalReceivedProfit
+                "on loop#%s, profit is %s and total profit is %s", j, receivedProfitByLoop[j], totalReceivedProfit
             );
         }
+
+        // output:
+        // total earned deduction which generate by ALICE:  10000000000000000000000
+        // on loop#0, profit is 8413231408258615576616 and total profit is 8413231408258615576616
+        // on loop#1, profit is 457573095453811019314 and total profit is 8870804503712426595930
+        // on loop#2, profit is 17521480582762029503 and total profit is 8888325984295188625433
+        // on loop#3, profit is 547124116408170309 and total profit is 8888873108411596795742
+        // on loop#4, profit is 15355399738316093 and total profit is 8888888463811335111835
+        // on loop#5, profit is 413693173506145 and total profit is 8888888877504508617980
+        // on loop#6, profit is 11078200136216 and total profit is 8888888888582708754196
+        // on loop#7, profit is 297916522380 and total profit is 8888888888880625276576
+        // on loop#8, profit is 8036869046 and total profit is 8888888888888662145622
+        // on loop#9, profit is 216548626 and total profit is 8888888888888878694248
+        // on loop#10, profit is 5433845 and total profit is 8888888888888884128093
+        // on loop#11, profit is 30070 and total profit is 8888888888888884158163
+        // on loop#12, profit is 0 and total profit is 8888888888888884158163
+        // on loop#13, profit is 0 and total profit is 8888888888888884158163
+        // on loop#14, profit is 0 and total profit is 8888888888888884158163
+        // on loop#15, profit is 0 and total profit is 8888888888888884158163
+        // on loop#16, profit is 0 and total profit is 8888888888888884158163
+        // on loop#17, profit is 0 and total profit is 8888888888888884158163
+        // on loop#18, profit is 0 and total profit is 8888888888888884158163
+        // on loop#19, profit is 0 and total profit is 8888888888888884158163
     }
 
     function test_redeemLCDOT_revertZeroAmount() public {
