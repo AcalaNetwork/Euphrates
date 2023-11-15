@@ -1582,3 +1582,101 @@ contract UpgradeableStakingLSTInitializeTest is Test {
         );
     }
 }
+
+contract UpgradeableStakingLSTTest2 is Test {
+    using stdStorage for StdStorage;
+
+    event LSTPoolConverted(
+        uint256 poolId,
+        IERC20 beforeShareType,
+        IERC20 afterShareType,
+        uint256 beforeShareTokenAmount,
+        uint256 afterShareTokenAmount
+    );
+    event Unstake(address indexed account, uint256 poolId, uint256 amount);
+    event Stake(address indexed account, uint256 poolId, uint256 amount);
+    event ClaimReward(address indexed account, uint256 poolId, IERC20 indexed rewardType, uint256 amount);
+
+    UpgradeableStakingLSTHarness public staking;
+    MockHoma public homa;
+    MockStableAsset public stableAsset;
+    MockLiquidCrowdloan public liquidCrowdloan;
+    IERC20 public dot;
+    IERC20 public ldot;
+    IERC20 public lcdot;
+    IERC20 public tdot;
+    IERC20 public aca;
+    WrappedTDOT public wtdot;
+    address public ADMIN = address(0x1111);
+    address public ATTACKER = address(0x2222);
+    address public VICTIM = address(0x3333);
+
+    function setUp() public {
+        dot = IERC20(address(new MockToken("Acala DOT", "DOT", 1_000_000_000 ether)));
+        lcdot = IERC20(address(new MockToken("Acala LcDOT", "LcDOT", 1_000_000_000 ether)));
+        ldot = IERC20(address(new MockToken("Acala LDOT", "LDOT", 1_000_000_000 ether)));
+        tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
+        aca = IERC20(address(new MockToken("Acala", "ACA", 1_000_000_000 ether)));
+
+        homa = new MockHoma(address(dot), address(ldot));
+        stableAsset = new MockStableAsset(
+            address(dot),
+            address(ldot),
+            address(tdot),
+            address(homa)
+        );
+        liquidCrowdloan = new MockLiquidCrowdloan(
+            address(lcdot),
+            address(dot),
+            1e18
+        );
+        wtdot = new WrappedTDOT(address(tdot));
+
+        staking = new UpgradeableStakingLSTHarness();
+        vm.prank(ADMIN);
+        staking.initialize(
+            address(dot),
+            address(lcdot),
+            address(ldot),
+            address(tdot),
+            address(homa),
+            address(stableAsset),
+            address(liquidCrowdloan),
+            address(wtdot)
+        );
+    }
+
+    function test_exploit() public {
+        // 1. initialize state
+        vm.warp(1_689_500_000);
+        aca.transfer(ADMIN, 1_000_000_000 ether);
+        dot.transfer(ATTACKER, 1_000_000 ether);
+        dot.transfer(VICTIM, 1_000 ether);
+
+        vm.startPrank(ADMIN);
+        staking.addPool(dot);
+        aca.approve(address(staking), 1_000_000 ether);
+        staking.updateRewardRule(0, aca, 1_000 ether, 1_689_501_000);
+        staking.setRewardsDeductionRate(0, uint256(1e18) / 5); // 20% deduction
+        vm.stopPrank();
+
+        vm.startPrank(VICTIM);
+        dot.approve(address(staking), 1_000 ether);
+        staking.stake(0, 1_000 ether);
+        vm.stopPrank();
+
+        vm.startPrank(ATTACKER);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        vm.stopPrank();
+
+        vm.warp(1_689_500_000);
+        vm.prank(ATTACKER);
+        staking.claimRewards(0);
+        assertEq(aca.balanceOf(ATTACKER), 0);
+
+        vm.prank(VICTIM);
+        staking.claimRewards(0);
+        assertEq(aca.balanceOf(VICTIM), 0);
+    }
+}
