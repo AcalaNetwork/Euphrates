@@ -8,9 +8,10 @@ interface ILSTConvert {
 
     function outputToken() external view returns (address);
 
-    function convertThreshold() external view returns (uint256);
-
     function convert(uint256 inputAmount) external returns (uint256);
 
-    function convertTo(uint256 inputAmount, address receiver) external returns (uint256);
+    function convertTo(
+        uint256 inputAmount,
+        address receiver
+    ) external returns (uint256);
 }
