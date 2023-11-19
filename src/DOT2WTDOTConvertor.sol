@@ -11,18 +11,41 @@ import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
 import "./WrappedTDOT.sol";
 import "./ILSTConvert.sol";
 
+/// @title DOT2WTDOTConvertor Contract
+/// @author Acala Developers
+/// @notice Convert DOT to WTDOT by Homa protocal, StableAsset of Acala and WTDOT contract.
 contract DOT2WTDOTConvertor is ILSTConvert, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
+    /// @notice The StableAsset predeployed contract of Acala.
     address public immutable stableAsset;
+
+    /// @notice The Homa predeployed contract of Acala.
     address public immutable homa;
+
+    /// @notice The token address of DOT.
     address public immutable dot;
+
+    /// @notice The token address of LDOT.
     address public immutable ldot;
+
+    /// @notice The token address of TDOT.
     address public immutable tdot;
+
+    /// @notice The token address of WTDOT.
     address public immutable wtdot;
+
+    /// @notice The threshold amount of DOT to mint by HOMA.
     uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000; // 5 DOT
 
+    /// @notice Deploys DOT2WTDOTConvertor.
+    /// @param stableAssetAddr The predeployed StableAsset contract of Acala.
+    /// @param homaAddr The predeployed Homa contract of Acala.
+    /// @param dotAddr The token address of DOT.
+    /// @param ldotAddr The token address of LDOT.
+    /// @param tdotAddr The token address of TDOT.
+    /// @param wtdotAddr The WTDOT contract.
     constructor(
         address stableAssetAddr,
         address homaAddr,
@@ -39,18 +62,22 @@ contract DOT2WTDOTConvertor is ILSTConvert, ReentrancyGuard {
         wtdot = wtdotAddr;
     }
 
+    /// @inheritdoc ILSTConvert
     function inputToken() external view override returns (address) {
         return dot;
     }
 
+    /// @inheritdoc ILSTConvert
     function outputToken() external view override returns (address) {
         return wtdot;
     }
 
+    /// @inheritdoc ILSTConvert
     function convert(uint256 inputAmount) external override returns (uint256) {
         return _convert(inputAmount, msg.sender);
     }
 
+    /// @inheritdoc ILSTConvert
     function convertTo(
         uint256 inputAmount,
         address receiver
@@ -62,6 +89,10 @@ contract DOT2WTDOTConvertor is ILSTConvert, ReentrancyGuard {
         return _convert(inputAmount, receiver);
     }
 
+    /// @notice Convert `inputAmount` token and send output token to `receiver`.
+    /// @param inputAmount The input token amount to convert.
+    /// @param receiver The receiver for the converted output token.
+    /// @return outputAmount The output token amount.
     function _convert(
         uint256 inputAmount,
         address receiver

@@ -88,6 +88,8 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// (poolId => convertInfo)
     mapping(uint256 => ConvertInfo) private _convertInfos;
 
+    /// @dev The LST convertor of pool.
+    /// (poolId => ILSTConvert)
     mapping(uint256 => ILSTConvert) private _poolConvertors;
 
     /// @dev overwrite initialize() to mute initializer of UpgradeableStakingCommon
@@ -139,10 +141,16 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
         return _convertInfos[poolId];
     }
 
+    /// @notice Get the LST convertor of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @return Returns convertor address.
     function poolConvertors(uint256 poolId) public view returns (ILSTConvert) {
         return _poolConvertors[poolId];
     }
 
+    /// @notice Reset the `convertor` as the convertor of `poolId` pool.
+    /// @param poolId The index of staking pool.
+    /// @param convertor The LST convertor.
     function resetPoolConvertor(
         uint256 poolId,
         ILSTConvert convertor
