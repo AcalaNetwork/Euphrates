@@ -318,6 +318,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
     /// @param amount The amount of share token to stake.
     function stake(uint256 poolId, uint256 amount)
         public
+        virtual
         override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Stake)
@@ -380,6 +381,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
     /// @return Returns (success).
     function unstake(uint256 poolId, uint256 amount)
         public
+        virtual
         override
         whenNotPaused
         poolOperationNotPaused(poolId, Operation.Unstake)

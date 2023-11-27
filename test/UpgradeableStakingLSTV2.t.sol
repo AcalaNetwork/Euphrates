@@ -71,6 +71,533 @@ contract UpgradeableStakingLSTV2Test is Test {
         );
     }
 
+    function test_stake_revertZeroAmount() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        vm.expectRevert("cannot stake 0");
+        staking.stake(0, 0);
+    }
+
+    function test_stake_revertInvalidPool() public {
+        vm.expectRevert("invalid pool");
+        staking.stake(0, 100);
+    }
+
+    function test_stake_works() public {
+        vm.warp(1_689_500_000);
+
+        dot.transfer(ADMIN, 1_000_000 ether);
+        lcdot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.updateRewardRule(0, dot, 500 ether, 1_689_502_000);
+        vm.stopPrank();
+
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
+        assertEq(staking.rewardPerShare(0, dot), 0);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_500_000);
+
+        // ALICE add share to pool#0, which hasn't been converted yet.
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 200_000 ether);
+        vm.expectEmit(false, false, false, true);
+        emit Stake(ALICE, 0, 200_000 ether);
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 200_000 ether);
+        assertEq(staking.shares(0, ALICE), 200_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 200_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.earned(0, ALICE, dot), 0);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
+        assertEq(staking.rewardPerShare(0, dot), 0);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_500_000);
+
+        // convert pool#0 to LDOT
+        vm.warp(1_689_501_000);
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, ldot, 200_000 ether, 1_600_000 ether);
+        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+        assertEq(staking.totalShares(0), 200_000 ether);
+        assertEq(staking.shares(0, ALICE), 200_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 1_600_000 ether);
+        assertEq(staking.rewards(0, ALICE, dot), 0);
+        assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_500_000);
+
+        // ALICE stake LCDOT to pool#0 after conversion, now the liquidCrowdloan redeem token is still DOT.
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 500_000 ether);
+        vm.expectEmit(false, false, false, true);
+        emit Stake(ALICE, 0, 500_000 ether);
+        staking.stake(0, 500_000 ether);
+        vm.stopPrank();
+
+        assertEq(staking.totalShares(0), 700_000 ether);
+        assertEq(staking.shares(0, ALICE), 700_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 5_600_000 ether);
+        assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+
+        // simulate the exchange rate of LDOT to DOT from 8:1 increases to 5:1
+        stdstore.target(address(homa)).sig("getExchangeRate()").checked_write(1e18 / 5);
+        assertEq(homa.getExchangeRate(), 1e18 / 5);
+
+        // ALICE stake more LCDOT to pool#0, but get less share amount than before.
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 100_000 ether);
+        vm.expectEmit(false, false, false, true);
+        emit Stake(ALICE, 0, 62_500 ether);
+        staking.stake(0, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 762_500 ether);
+        assertEq(staking.shares(0, ALICE), 762_500 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 6_100_000 ether);
+
+        // simulate liquidCrowdloan switch redeem token from DOT to LDOT
+        uint256 snapId = vm.snapshot();
+        ldot.transfer(address(liquidCrowdloan), 4_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(ldot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(4e18);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(ldot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 4e18);
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 100_000 ether);
+        vm.expectEmit(false, false, false, true);
+        emit Stake(ALICE, 0, 50_000 ether);
+        staking.stake(0, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 812_500 ether);
+        assertEq(staking.shares(0, ALICE), 812_500 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 6_500_000 ether);
+        vm.revertTo(snapId);
+
+        // simulate liquidCrowdloan switch redeem token from DOT to TDOT, can not stake LcDOT
+        uint256 snapId2 = vm.snapshot();
+        tdot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(tdot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(1e18);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(tdot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 100_000 ether);
+        vm.expectRevert("unsupported convert");
+        staking.stake(0, 100_000 ether);
+        vm.stopPrank();
+        vm.revertTo(snapId2);
+    }
+
+    function test_stake_afterConvert2WTDOT() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+        dot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        staking.addPool(dot);
+        vm.stopPrank();
+
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(staking.totalShares(1), 0);
+        assertEq(staking.shares(1, ALICE), 0);
+        assertEq(dot.balanceOf(address(staking)), 0);
+
+        // ALICE add share to pool#0 and pool#1, which hasn't been converted yet.
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 100_000 ether);
+        dot.approve(address(staking), 100_000 ether);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 0, 100_000 ether);
+        staking.stake(0, 100_000 ether);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 1, 100_000 ether);
+        staking.stake(1, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 100_000 ether);
+        assertEq(staking.shares(0, ALICE), 100_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 100_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(staking.totalShares(1), 100_000 ether);
+        assertEq(staking.shares(1, ALICE), 100_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 100_000 ether);
+        assertEq(address(staking.convertInfos(1).convertedShareType), address(0));
+        assertEq(staking.convertInfos(1).convertedExchangeRate, 0);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+
+        // convert pool#0 & pool#1 to WTDOT pool
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+        vm.startPrank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, IERC20(address(wtdot)), 100_000 ether, 90_000 ether);
+        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2WTDOT);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(1, dot, IERC20(address(wtdot)), 100_000 ether, 90_000 ether);
+        staking.convertLSTPool(1, UpgradeableStakingLST.ConvertType.DOT2WTDOT);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 100_000 ether);
+        assertEq(staking.shares(0, ALICE), 100_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
+        assertEq(staking.totalShares(1), 100_000 ether);
+        assertEq(staking.shares(1, ALICE), 100_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(1).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(1).convertedExchangeRate, 9e17);
+        assertEq(wtdot.balanceOf(address(staking)), 180_000 ether);
+
+        // ALICE stake LCDOT to pool#0 after conversion.
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 100_000 ether);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 0, 100_000 ether);
+        staking.stake(0, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 200_000 ether);
+        assertEq(staking.shares(0, ALICE), 200_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 270_000 ether);
+
+        // ALICE stake DOT to pool#1 after conversion.
+        vm.startPrank(ALICE);
+        dot.approve(address(staking), 100_000 ether);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 1, 100_000 ether);
+        staking.stake(1, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(1), 200_000 ether);
+        assertEq(staking.shares(1, ALICE), 200_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 360_000 ether);
+    }
+
+    function test_stake_stakeWTDOTToWTDOTPool() public {
+        tdot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.prank(ADMIN);
+        staking.addPool(IERC20(address(wtdot)));
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+
+        // ALICE stake WTDOT to WTDOT pool
+        vm.startPrank(ALICE);
+        tdot.approve(address(wtdot), 100_000 ether);
+        uint256 stakeAmount = wtdot.deposit(100_000 ether);
+        wtdot.approve(address(staking), stakeAmount);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 0, 100_000 ether);
+        staking.stake(0, 100_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 100_000 ether);
+        assertEq(staking.shares(0, ALICE), 100_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 900_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 100_000 ether);
+
+        // mock the hold TDOT increased of WrappedTDOT
+        tdot.transfer(address(wtdot), 25_000 ether);
+        assertEq(wtdot.depositRate(), 8e17);
+
+        // ALICE stake WTDOT to WTDOT pool
+        vm.startPrank(ALICE);
+        tdot.approve(address(wtdot), 100_000 ether);
+        uint256 stakeAmount1 = wtdot.deposit(100_000 ether);
+        wtdot.approve(address(staking), stakeAmount1);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 0, 80_000 ether);
+        staking.stake(0, stakeAmount1);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 180_000 ether);
+        assertEq(staking.shares(0, ALICE), 180_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 800_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 180_000 ether);
+    }
+
+    function test_unstake_RevertZeroAmount() public {
+        vm.expectRevert("cannot unstake 0");
+        staking.unstake(0, 0);
+    }
+
+    function test_unstake_RevertInvalidPool() public {
+        vm.expectRevert("invalid pool");
+        staking.unstake(0, 100);
+    }
+
+    function test_unstake_works() public {
+        vm.warp(1_689_500_000);
+
+        dot.transfer(ADMIN, 1_000_000 ether);
+        lcdot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.updateRewardRule(0, dot, 500 ether, 1_689_502_000);
+        vm.stopPrank();
+
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.earned(0, ALICE, dot), 0);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
+        assertEq(staking.rewardPerShare(0, dot), 0);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_500_000);
+
+        // ALICE stake some share to pool#0
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 1_000_000 ether);
+        vm.expectEmit(false, false, false, true);
+        emit Stake(ALICE, 0, 200_000 ether);
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 200_000 ether);
+        assertEq(staking.shares(0, ALICE), 200_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 200_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.earned(0, ALICE, dot), 0);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), 0);
+        assertEq(staking.rewardPerShare(0, dot), 0);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, 0);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_500_000);
+
+        // ALICE unstake some share
+        vm.warp(1_689_501_000);
+        vm.prank(ALICE);
+        emit Unstake(ALICE, 0, 50_000 ether);
+        staking.unstake(0, 50_000 ether);
+        assertEq(staking.totalShares(0), 150_000 ether);
+        assertEq(staking.shares(0, ALICE), 150_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 150_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+
+        // convert pool to LDOT
+        dot.transfer(address(liquidCrowdloan), 150_000 ether);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, ldot, 150_000 ether, 1_200_000 ether);
+        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+        assertEq(staking.totalShares(0), 150_000 ether);
+        assertEq(staking.shares(0, ALICE), 150_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 1_200_000 ether);
+        assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+
+        // ALICE unstake some share
+        vm.prank(ALICE);
+        vm.expectEmit(false, false, false, true);
+        emit Unstake(ALICE, 0, 100_000 ether);
+        staking.unstake(0, 100_000 ether);
+
+        assertEq(staking.totalShares(0), 50_000 ether);
+        assertEq(staking.shares(0, ALICE), 50_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 400_000 ether);
+        assertEq(staking.rewards(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.earned(0, ALICE, dot), 500_000 ether);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+
+        // ALICE exit
+        vm.prank(ALICE);
+        vm.expectEmit(false, false, false, true);
+        emit Unstake(ALICE, 0, 50_000 ether);
+        emit ClaimReward(ALICE, 0, dot, 500_000 ether);
+        staking.exit(0);
+
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(dot.balanceOf(address(staking)), 500_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(staking.rewards(0, ALICE, dot), 0);
+        assertEq(staking.earned(0, ALICE, dot), 0);
+        assertEq(staking.paidAccumulatedRates(0, ALICE, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardPerShare(0, dot), (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).rewardRate, 500 ether);
+        assertEq(staking.rewardRules(0, dot).endTime, 1_689_502_000);
+        assertEq(staking.rewardRules(0, dot).rewardRateAccumulated, (500 ether * 1000 * 1e18) / 200_000 ether);
+        assertEq(staking.rewardRules(0, dot).lastAccumulatedTime, 1_689_501_000);
+    }
+
+    function test_unstake_unstakeWTDOTFromWTDOTPool() public {
+        tdot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.prank(ADMIN);
+        staking.addPool(IERC20(address(wtdot)));
+        assertEq(staking.totalShares(0), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+
+        // ALICE stake WTDOT to WTDOT pool
+        vm.startPrank(ALICE);
+        tdot.approve(address(wtdot), 1_000_000 ether);
+        uint256 stakeAmount = wtdot.deposit(1_000_000 ether);
+        wtdot.approve(address(staking), stakeAmount);
+        vm.expectEmit(true, false, false, true);
+        emit Stake(ALICE, 0, 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        vm.stopPrank();
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(ALICE)), 0);
+
+        // ALICE unstake WTDOT from WTDOT pool
+        vm.prank(ALICE);
+        vm.expectEmit(true, false, false, true);
+        emit Unstake(ALICE, 0, 100_000 ether);
+        staking.unstake(0, 100_000 ether);
+        assertEq(staking.totalShares(0), 900_000 ether);
+        assertEq(staking.shares(0, ALICE), 900_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 0 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 900_000 ether);
+        assertEq(wtdot.balanceOf(address(ALICE)), 100_000 ether);
+    }
+
+    function test_unstake_unstakeWTDOTFromConvert2WTDOTPool() public {
+        dot.transfer(ALICE, 1_000_000 ether);
+
+        // create pool
+        vm.prank(ADMIN);
+        staking.addPool(dot);
+        vm.startPrank(ALICE);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        vm.stopPrank();
+
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, dot, IERC20(address(wtdot)), 1_000_000 ether, 900_000 ether);
+        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.DOT2WTDOT);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 900_000 ether);
+        assertEq(dot.balanceOf(address(ALICE)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 0);
+        assertEq(wtdot.balanceOf(address(ALICE)), 0);
+
+        // ALICE stake WTDOT from the WTDOT pool which converted from DOT pool
+        vm.prank(ALICE);
+        vm.expectEmit(true, false, false, true);
+        emit Unstake(ALICE, 0, 100_000 ether);
+        staking.unstake(0, 100_000 ether);
+        assertEq(staking.totalShares(0), 900_000 ether);
+        assertEq(staking.shares(0, ALICE), 900_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 810_000 ether);
+        assertEq(dot.balanceOf(address(ALICE)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 0);
+        assertEq(wtdot.balanceOf(address(ALICE)), 90_000 ether);
+
+        // ALICE stake WTDOT from the WTDOT pool which converted from DOT pool
+        vm.prank(ALICE);
+        vm.expectEmit(true, false, false, true);
+        emit Unstake(ALICE, 0, 100_000 ether);
+        staking.unstake(0, 100_000 ether);
+        assertEq(staking.totalShares(0), 800_000 ether);
+        assertEq(staking.shares(0, ALICE), 800_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 720_000 ether);
+        assertEq(dot.balanceOf(address(ALICE)), 0);
+        assertEq(tdot.balanceOf(address(ALICE)), 0);
+        assertEq(wtdot.balanceOf(address(ALICE)), 180_000 ether);
+    }
+
     function test_stakeTo_revertZeroReceiver() public {
         vm.startPrank(ADMIN);
         staking.addPool(lcdot);
