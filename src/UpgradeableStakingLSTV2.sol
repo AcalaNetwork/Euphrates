@@ -20,11 +20,7 @@ interface IStakingTo is IStaking {
     /// @param amount The share amount to stake.
     /// @param receiver The share receiver.
     /// @return Returns (success).
-    function stakeTo(
-        uint256 poolId,
-        uint256 amount,
-        address receiver
-    ) external returns (bool);
+    function stakeTo(uint256 poolId, uint256 amount, address receiver) external returns (bool);
 }
 
 /// @title UpgradeableStakingLSTV2 Contract
@@ -92,6 +88,13 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// (poolId => ILSTConvert)
     mapping(uint256 => ILSTConvert) private _poolConvertors;
 
+    mapping(uint256 => address) private _poolManagers;
+
+    modifier onlyPoolManager(uint256 poolId) {
+        require(msg.sender == poolManagers(poolId), "msg.sender is not the pool's manager");
+        _;
+    }
+
     /// @dev overwrite initialize() to mute initializer of UpgradeableStakingCommon
     function initialize() public override {}
 
@@ -113,10 +116,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
         require(tdot != address(0), "TDOT address is zero");
         require(homa != address(0), "HOMA address is zero");
         require(stableAsset != address(0), "STABLE_ASSET address is zero");
-        require(
-            liquidCrowdloan != address(0),
-            "LIQUID_CROWDLOAN address is zero"
-        );
+        require(liquidCrowdloan != address(0), "LIQUID_CROWDLOAN address is zero");
         require(wtdot != address(0), "WTDOT address is zero");
         DOT = dot;
         LCDOT = lcdot;
@@ -135,9 +135,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @notice Get the LST convertion info of `poolId` pool.
     /// @param poolId The index of staking pool.
     /// @return Returns convert info.
-    function convertInfos(
-        uint256 poolId
-    ) public view returns (ConvertInfo memory) {
+    function convertInfos(uint256 poolId) public view returns (ConvertInfo memory) {
         return _convertInfos[poolId];
     }
 
@@ -148,24 +146,21 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
         return _poolConvertors[poolId];
     }
 
+    function poolManagers(uint256 poolId) public view returns (address) {
+        return _poolManagers[poolId];
+    }
+
     /// @notice Reset the `convertor` as the convertor of `poolId` pool.
     /// @param poolId The index of staking pool.
     /// @param convertor The LST convertor.
-    function resetPoolConvertor(
-        uint256 poolId,
-        ILSTConvert convertor
-    ) public onlyOwner whenNotPaused {
+    function resetPoolConvertor(uint256 poolId, ILSTConvert convertor) public onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
         IERC20 convertedShareTypes = convertInfos(poolId).convertedShareType;
-        require(
-            address(convertedShareTypes) != address(0),
-            "pool must be already converted"
-        );
+        require(address(convertedShareTypes) != address(0), "pool must be already converted");
 
         require(
-            convertor.inputToken() == address(shareType) &&
-                convertor.outputToken() == address(convertedShareTypes),
+            convertor.inputToken() == address(shareType) && convertor.outputToken() == address(convertedShareTypes),
             "convertor is not matched"
         );
 
@@ -175,9 +170,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @dev convert `amount` WTDOT token of this contract to TDOT token.
     /// @param amount The amount of WTDOT to convert.
     /// @return convertAmount The amount of converted TDOT.
-    function _convertWTDOT2TDOT(
-        uint256 amount
-    ) internal returns (uint256 convertAmount) {
+    function _convertWTDOT2TDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
         return IWTDOT(WTDOT).withdraw(amount);
     }
@@ -185,9 +178,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @dev convert `amount` TDOT token of this contract to WTDOT token.
     /// @param amount The amount of TDOT to convert.
     /// @return convertAmount The amount of converted WTDOT.
-    function _convertTDOT2WTDOT(
-        uint256 amount
-    ) internal returns (uint256 convertAmount) {
+    function _convertTDOT2WTDOT(uint256 amount) internal returns (uint256 convertAmount) {
         require(amount != 0, "amount shouldn't be zero");
         IERC20(TDOT).safeApprove(WTDOT, amount);
         return IWTDOT(WTDOT).deposit(amount);
@@ -196,25 +187,16 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @notice convert the share token of ‘poolId’ pool to LST token by `convertor`.
     /// @param poolId The index of staking pool.
     /// @param convertor The convert contract address.
-    function convertLSTPool(
-        uint256 poolId,
-        ILSTConvert convertor
-    ) external onlyOwner whenNotPaused {
+    function convertLSTPool(uint256 poolId, ILSTConvert convertor) external onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
         ConvertInfo storage convert = _convertInfos[poolId];
-        require(
-            address(convert.convertedShareType) == address(0),
-            "already converted"
-        );
+        require(address(convert.convertedShareType) == address(0), "already converted");
 
         uint256 amount = totalShares(poolId);
         require(amount > 0, "pool is empty");
 
-        require(
-            convertor.inputToken() == address(shareType),
-            "convertor is not matched"
-        );
+        require(convertor.inputToken() == address(shareType), "convertor is not matched");
 
         shareType.safeApprove(address(convertor), amount);
         uint256 convertAmount = convertor.convert(amount);
@@ -226,30 +208,17 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
         convert.convertedShareType = IERC20(convertor.outputToken());
         _poolConvertors[poolId] = convertor;
 
-        emit LSTPoolConverted(
-            poolId,
-            shareType,
-            convert.convertedShareType,
-            amount,
-            convertAmount
-        );
+        emit LSTPoolConverted(poolId, shareType, convert.convertedShareType, amount, convertAmount);
     }
 
-    function _stakeTo(
-        uint256 poolId,
-        uint256 amount,
-        address receiver
-    ) internal returns (bool) {
+    function _stakeTo(uint256 poolId, uint256 amount, address receiver) internal returns (bool) {
         IERC20 shareType = shareTypes(poolId);
         require(address(shareType) != address(0), "invalid pool");
         uint256 addedShare;
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
             ILSTConvert convertor = poolConvertors(poolId);
-            require(
-                address(poolConvertors(poolId)) != address(0),
-                "pool convertor is not set"
-            );
+            require(address(poolConvertors(poolId)) != address(0), "pool convertor is not set");
 
             // if pool has converted, transfer the before share token to this firstly
             shareType.safeTransferFrom(msg.sender, address(this), amount);
@@ -259,9 +228,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
             uint256 convertedAmount = convertor.convert(amount);
 
             // must convert the share amount according to the exchange rate of converted pool
-            addedShare = convertedAmount.mul(1e18).div(
-                convertInfo.convertedExchangeRate
-            );
+            addedShare = convertedAmount.mul(1e18).div(convertInfo.convertedExchangeRate);
         } else if (address(shareType) == WTDOT) {
             // transfer TDOT to this, convert it to WTDOT and stake it
             IERC20(TDOT).safeTransferFrom(msg.sender, address(this), amount);
@@ -284,10 +251,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @notice Stake `amount` share token to `poolId` pool. If pool has been converted, still stake before share token.
     /// @param poolId The index of staking pool.
     /// @param amount The amount of share token to stake.
-    function stake(
-        uint256 poolId,
-        uint256 amount
-    )
+    function stake(uint256 poolId, uint256 amount)
         public
         override(IStaking, UpgradeableStakingCommon)
         whenNotPaused
@@ -300,11 +264,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     }
 
     /// @inheritdoc IStakingTo
-    function stakeTo(
-        uint256 poolId,
-        uint256 amount,
-        address receiver
-    )
+    function stakeTo(uint256 poolId, uint256 amount, address receiver)
         public
         virtual
         override
@@ -322,10 +282,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
     /// @param poolId The index of staking pool.
     /// @param amount The share token amount to unstake. If pool has been converted, it's converted share token amount, not the share amount.
     /// @return Returns (success).
-    function unstake(
-        uint256 poolId,
-        uint256 amount
-    )
+    function unstake(uint256 poolId, uint256 amount)
         public
         override(IStaking, UpgradeableStakingCommon)
         whenNotPaused
@@ -344,19 +301,14 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
 
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
-            uint256 convertedAmount = amount
-                .mul(convertInfo.convertedExchangeRate)
-                .div(1e18);
+            uint256 convertedAmount = amount.mul(convertInfo.convertedExchangeRate).div(1e18);
             require(convertedAmount != 0, "shouldn't be zero");
 
             if (address(convertInfo.convertedShareType) == WTDOT) {
                 uint256 tdotAmount = _convertWTDOT2TDOT(convertedAmount);
                 IERC20(TDOT).safeTransfer(msg.sender, tdotAmount);
             } else {
-                convertInfo.convertedShareType.safeTransfer(
-                    msg.sender,
-                    convertedAmount
-                );
+                convertInfo.convertedShareType.safeTransfer(msg.sender, convertedAmount);
             }
         } else if (address(shareType) == WTDOT) {
             uint256 tdotAmount = _convertWTDOT2TDOT(amount);
@@ -368,5 +320,37 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingCommon, IStakingTo {
         emit Unstake(msg.sender, poolId, amount);
 
         return true;
+    }
+
+    /// @inheritdoc Staking
+    /// @dev Override the inherited function to define `whenNotPaused` access.
+    function addPool(IERC20 shareType) public virtual override whenNotPaused {
+        uint256 poolId = poolIndex();
+        Staking.addPool(shareType);
+        _poolManagers[poolId] = msg.sender;
+    }
+
+    /// @inheritdoc Staking
+    /// @dev Override the inherited function to define `onlyPoolManager` and `whenNotPaused` access.
+    function setRewardsDeductionRate(uint256 poolId, uint256 rate)
+        public
+        virtual
+        override
+        onlyPoolManager(poolId)
+        whenNotPaused
+    {
+        Staking.setRewardsDeductionRate(poolId, rate);
+    }
+
+    /// @inheritdoc Staking
+    /// @dev Override the inherited function to define `onlyPoolManager` and `whenNotPaused` access.
+    function updateRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime)
+        public
+        virtual
+        override
+        onlyPoolManager(poolId)
+        whenNotPaused
+    {
+        Staking.updateRewardRule(poolId, rewardType, rewardRate, endTime);
     }
 }

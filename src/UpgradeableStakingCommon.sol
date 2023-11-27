@@ -46,6 +46,7 @@ contract UpgradeableStakingCommon is
     /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function setPoolOperationPause(uint256 poolId, Operation operation, bool paused)
         public
+        virtual
         override
         onlyOwner
         whenNotPaused
@@ -55,13 +56,13 @@ contract UpgradeableStakingCommon is
 
     /// @inheritdoc Staking
     /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
-    function addPool(IERC20 shareType) public override onlyOwner whenNotPaused {
+    function addPool(IERC20 shareType) public virtual override onlyOwner whenNotPaused {
         super.addPool(shareType);
     }
 
     /// @inheritdoc Staking
     /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
-    function setRewardsDeductionRate(uint256 poolId, uint256 rate) public override onlyOwner whenNotPaused {
+    function setRewardsDeductionRate(uint256 poolId, uint256 rate) public virtual override onlyOwner whenNotPaused {
         super.setRewardsDeductionRate(poolId, rate);
     }
 
@@ -69,6 +70,7 @@ contract UpgradeableStakingCommon is
     /// @dev Override the inherited function to define `onlyOwner` and `whenNotPaused` access.
     function updateRewardRule(uint256 poolId, IERC20 rewardType, uint256 rewardRate, uint256 endTime)
         public
+        virtual
         override
         onlyOwner
         whenNotPaused
