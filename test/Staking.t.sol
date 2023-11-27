@@ -646,6 +646,7 @@ contract StakingTest is Test {
         vm.startPrank(BOB);
         shareTokenA.approve(address(staking), 2_000_000);
         staking.stake(0, 2_000_000);
+        vm.stopPrank();
 
         assertEq(rewardTokenA.balanceOf(address(staking)), 5_000_000);
         assertEq(rewardTokenA.balanceOf(BOB), 0);
