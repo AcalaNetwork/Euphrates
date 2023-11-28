@@ -24,8 +24,10 @@ contract DeployUpgradeableStakingLSTOnAcala is Script {
     address public constant LDOT = 0x0000000000000000000100000000000000000003;
     address public constant TDOT = 0x0000000000000000000300000000000000000000;
     address public constant HOMA = 0x0000000000000000000000000000000000000805;
-    address public constant STABLE_ASSET = 0x0000000000000000000000000000000000000804;
-    address public constant LIQUID_CROWDLOAN = 0x000000000000000000000000000000000000080a;
+    address public constant STABLE_ASSET =
+        0x0000000000000000000000000000000000000804;
+    address public constant LIQUID_CROWDLOAN =
+        0x000000000000000000000000000000000000080a;
     address public constant WTDOT = 0x000000000000000000000000000000000000080b; // TODO: did not existed, need config
 
     function run() public {
@@ -37,14 +39,29 @@ contract DeployUpgradeableStakingLSTOnAcala is Script {
 
         // deploy proxy contract and fetch it as implementation, and specify admin as the owner of proxy admin
         proxy = ITransparentUpgradeableProxy(
-            address(new TransparentUpgradeableProxy(address(implementationV1), address(admin), ""))
+            address(
+                new TransparentUpgradeableProxy(
+                    address(implementationV1),
+                    address(admin),
+                    ""
+                )
+            )
         );
 
         // wrap in ABI to support easier calls
         wrappedProxyV1 = UpgradeableStakingLST(address(proxy));
 
         // initialize
-        implementationV1.initialize(DOT, LCDOT, LDOT, TDOT, HOMA, STABLE_ASSET, LIQUID_CROWDLOAN, WTDOT);
+        implementationV1.initialize(
+            DOT,
+            LCDOT,
+            LDOT,
+            TDOT,
+            HOMA,
+            STABLE_ASSET,
+            LIQUID_CROWDLOAN,
+            WTDOT
+        );
         assert(wrappedProxyV1.owner() == msg.sender);
 
         // new implementation and upgrade

@@ -5,6 +5,10 @@ import "forge-std/Test.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "../src/UpgradeableStakingLSTV2.sol";
 import "../src/WrappedTDOT.sol";
+import "../src/DOT2LDOTConvertor.sol";
+import "../src/DOT2WTDOTConvertor.sol";
+import "../src/LCDOT2LDOTConvertor.sol";
+import "../src/LCDOT2WTDOTConvertor.sol";
 import "./MockHoma.sol";
 import "./MockLiquidCrowdloan.sol";
 import "./MockStableAsset.sol";
@@ -28,10 +32,15 @@ contract UpgradeableStakingLSTV2Test is Test {
     MockHoma public homa;
     MockStableAsset public stableAsset;
     MockLiquidCrowdloan public liquidCrowdloan;
+    DOT2LDOTConvertor dot2ldotConvertor;
+    DOT2WTDOTConvertor dot2wtdotConvertor;
+    LCDOT2LDOTConvertor lcdot2ldotConvertor;
+    LCDOT2WTDOTConvertor lcdot2wtdotConvertor;
     IERC20 public dot;
     IERC20 public ldot;
     IERC20 public lcdot;
     IERC20 public tdot;
+    IERC20 public aca;
     WrappedTDOT public wtdot;
     address public ADMIN = address(0x1111);
     address public ALICE = address(0x2222);
@@ -42,6 +51,8 @@ contract UpgradeableStakingLSTV2Test is Test {
         lcdot = IERC20(address(new MockToken("Acala LcDOT", "LcDOT", 1_000_000_000 ether)));
         ldot = IERC20(address(new MockToken("Acala LDOT", "LDOT", 1_000_000_000 ether)));
         tdot = IERC20(address(new MockToken("Acala tDOT", "tDOT", 1_000_000_000 ether)));
+        aca = IERC20(address(new MockToken("Acala", "ACA", 1_000_000_000 ether)));
+        wtdot = new WrappedTDOT(address(tdot));
 
         homa = new MockHoma(address(dot), address(ldot));
         stableAsset = new MockStableAsset(
@@ -55,7 +66,36 @@ contract UpgradeableStakingLSTV2Test is Test {
             address(dot),
             1e18
         );
-        wtdot = new WrappedTDOT(address(tdot));
+        dot2ldotConvertor = new DOT2LDOTConvertor(
+            address(homa),
+            address(dot),
+            address(ldot)
+        );
+        dot2wtdotConvertor = new DOT2WTDOTConvertor(
+            address(stableAsset),
+            address(homa),
+            address(dot),
+            address(ldot),
+            address(tdot),
+            address(wtdot)
+        );
+        lcdot2ldotConvertor = new LCDOT2LDOTConvertor(
+            address(liquidCrowdloan),
+            address(homa),
+            address(lcdot),
+            address(dot),
+            address(ldot)
+        );
+        lcdot2wtdotConvertor = new LCDOT2WTDOTConvertor(
+            address(liquidCrowdloan),
+            address(stableAsset),
+            address(homa),
+            address(lcdot),
+            address(dot),
+            address(ldot),
+            address(tdot),
+            address(wtdot)
+        );
 
         staking = new UpgradeableStakingLSTV2();
         vm.prank(ADMIN);
@@ -71,6 +111,447 @@ contract UpgradeableStakingLSTV2Test is Test {
         );
     }
 
+    function test_convertLSTPool_revertDeprecatedFunction() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        vm.expectRevert("deprecated");
+        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+    }
+
+    function test_convertLSTPool_revertNotOwner() public {
+        assertEq(staking.owner(), ADMIN);
+        vm.prank(ALICE);
+        vm.expectRevert("Ownable: caller is not the owner");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+    }
+
+    function test_convertLSTPool_revertEmptyPool() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        vm.expectRevert("pool is empty");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+    }
+
+    function test_convertLSTPool_revertDismatchShareType() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(dot);
+        staking.addPool(lcdot);
+        vm.stopPrank();
+
+        dot.approve(address(staking), 1_000_000 ether);
+        lcdot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 100_000 ether);
+        staking.stake(1, 100_000 ether);
+
+        vm.startPrank(ADMIN);
+        vm.expectRevert("convertor is not matched");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        vm.expectRevert("convertor is not matched");
+        staking.convertLSTPool(0, lcdot2wtdotConvertor);
+        vm.expectRevert("convertor is not matched");
+        staking.convertLSTPool(1, dot2ldotConvertor);
+        vm.expectRevert("convertor is not matched");
+        staking.convertLSTPool(1, dot2wtdotConvertor);
+        vm.stopPrank();
+    }
+
+    function test_convertLSTPool_LCDOT2LDOT() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(lcdot);
+        assertEq(address(staking.shareTypes(0)), address(lcdot));
+
+        // stake share LCDOT to pool
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.stopPrank();
+
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+
+        // simulate redeem 0 DOT by LiquidCrowdloan
+        uint256 snapId = vm.snapshot();
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        uint256 slot = stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").find();
+        bytes32 loc = bytes32(slot);
+        bytes32 zero = bytes32(abi.encode(0));
+        vm.store(address(liquidCrowdloan), loc, zero);
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 0);
+        vm.prank(ADMIN);
+        vm.expectRevert("LCDOT2LDOTConvertor: zero output");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        vm.revertTo(snapId);
+
+        // simulate redeem DOT by LiquidCrowdloan but mint 0 LDOT by Homa
+        uint256 snapId1 = vm.snapshot();
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        uint256 slot1 = stdstore.target(address(homa)).sig("getExchangeRate()").find();
+        bytes32 loc1 = bytes32(slot1);
+        bytes32 zero1 = bytes32(abi.encode(0));
+        vm.store(address(homa), loc1, zero1);
+        assertEq(homa.getExchangeRate(), 0);
+        vm.prank(ADMIN);
+        vm.expectRevert(stdError.divisionError);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        vm.revertTo(snapId1);
+
+        // simulate convert LCDOT pool to LDOT pool, and liquidCrowdloan redeem token is DOT
+        uint256 snapId2 = vm.snapshot();
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, ldot, 1_000_000 ether, 8_000_000 ether);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(ldot.balanceOf(address(staking)), 8_000_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(ldot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 8e18);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+
+        // revert for already converted
+        vm.prank(ADMIN);
+        vm.expectRevert("already converted");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        vm.revertTo(snapId2);
+
+        // convert LCDOT pool to LDOT pool, and liquidCrowdloan redeem token is LDOT
+        uint256 snapId3 = vm.snapshot();
+        ldot.transfer(address(liquidCrowdloan), 10_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(ldot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(10e18);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(ldot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 10e18);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, ldot, 1_000_000 ether, 10_000_000 ether);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(ldot.balanceOf(address(staking)), 10_000_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(ldot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 10e18);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+        vm.revertTo(snapId3);
+
+        // simulate convert LCDOT pool to LDOT pool, and liquidCrowdloan redeem token is TDOT
+        uint256 snapId4 = vm.snapshot();
+        tdot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(tdot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(1e18);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(tdot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectRevert("LCDOT2LDOTConvertor: unsupported convert");
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        vm.revertTo(snapId4);
+    }
+
+    function test_convertLSTPool_DOT2LDOT() public {
+        dot.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(dot);
+        assertEq(address(staking.shareTypes(0)), address(dot));
+
+        // stake share DOT to pool
+        vm.startPrank(ALICE);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.stopPrank();
+
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+
+        // simulate mint 0 LDOT by Homa
+        uint256 snapId1 = vm.snapshot();
+        uint256 slot1 = stdstore.target(address(homa)).sig("getExchangeRate()").find();
+        bytes32 loc1 = bytes32(slot1);
+        bytes32 zero1 = bytes32(abi.encode(0));
+        vm.store(address(homa), loc1, zero1);
+        assertEq(homa.getExchangeRate(), 0);
+        vm.prank(ADMIN);
+        vm.expectRevert(stdError.divisionError);
+        staking.convertLSTPool(0, dot2ldotConvertor);
+        vm.revertTo(snapId1);
+
+        // simulate convert DOT pool to LDOT pool, and liquidCrowdloan redeem token is DOT
+        uint256 snapId2 = vm.snapshot();
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(ldot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, dot, ldot, 1_000_000 ether, 8_000_000 ether);
+        staking.convertLSTPool(0, dot2ldotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(ldot.balanceOf(address(staking)), 8_000_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(ldot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 8e18);
+        assertEq(address(staking.poolConvertors(0)), address(dot2ldotConvertor));
+
+        // revert for already converted
+        vm.prank(ADMIN);
+        vm.expectRevert("already converted");
+        staking.convertLSTPool(0, dot2ldotConvertor);
+        vm.revertTo(snapId2);
+    }
+
+    function test_convertLSTPool_LCDOT2WTDOT() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(lcdot);
+        assertEq(address(staking.shareTypes(0)), address(lcdot));
+
+        // stake share LCDOT to pool
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.stopPrank();
+
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+
+        // simulate convert LCDOT pool to WTDOT pool, and liquidCrowdloan redeem token is DOT
+        uint256 snapId = vm.snapshot();
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, IERC20(address(wtdot)), 1_000_000 ether, 900_000 ether);
+        staking.convertLSTPool(0, lcdot2wtdotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 900_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2wtdotConvertor));
+        vm.revertTo(snapId);
+
+        // simulate convert LCDOT pool to WTDOT pool, and liquidCrowdloan redeem token is LDOT
+        uint256 snapId1 = vm.snapshot();
+        ldot.transfer(address(liquidCrowdloan), 10_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(ldot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(10e18);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(ldot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 10e18);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, IERC20(address(wtdot)), 1_000_000 ether, 1_000_000 ether);
+        staking.convertLSTPool(0, lcdot2wtdotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 1e18);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2wtdotConvertor));
+        vm.revertTo(snapId1);
+
+        // simulate convert LCDOT pool to WTDOT pool, and liquidCrowdloan redeem token is TDOT
+        uint256 snapId2 = vm.snapshot();
+        tdot.transfer(address(liquidCrowdloan), 100_000_000 ether);
+        stdstore.target(address(liquidCrowdloan)).sig("getRedeemCurrency()").checked_write(address(tdot));
+        stdstore.target(address(liquidCrowdloan)).sig("redeemExchangeRate()").checked_write(101e16);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(tdot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 101e16);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, lcdot, IERC20(address(wtdot)), 1_000_000 ether, 1_010_000 ether);
+        staking.convertLSTPool(0, lcdot2wtdotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(lcdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 1_010_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 101e16);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2wtdotConvertor));
+        vm.revertTo(snapId2);
+    }
+
+    function test_convertLSTPool_DOT2WTDOT() public {
+        dot.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(dot);
+        assertEq(address(staking.shareTypes(0)), address(dot));
+
+        // stake share DOT to pool
+        vm.startPrank(ALICE);
+        dot.approve(address(staking), 1_000_000 ether);
+        staking.stake(0, 1_000_000 ether);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(0));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 0);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+        vm.stopPrank();
+
+        vm.prank(ADMIN);
+        vm.expectEmit(false, false, false, true);
+        emit LSTPoolConverted(0, dot, IERC20(address(wtdot)), 1_000_000 ether, 900_000 ether);
+        staking.convertLSTPool(0, dot2wtdotConvertor);
+        assertEq(staking.totalShares(0), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+        assertEq(dot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 900_000 ether);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
+        assertEq(address(staking.poolConvertors(0)), address(dot2wtdotConvertor));
+
+        // revert for already converted
+        vm.prank(ADMIN);
+        vm.expectRevert("already converted");
+        staking.convertLSTPool(0, dot2wtdotConvertor);
+    }
+
+    function test_resetPoolConvertor_revertNotOwner() public {
+        assertEq(staking.owner(), ADMIN);
+        vm.prank(ALICE);
+        vm.expectRevert("Ownable: caller is not the owner");
+        staking.resetPoolConvertor(0, lcdot2ldotConvertor);
+    }
+
+    function test_resetPoolConvertor_revertInvalidPool() public {
+        vm.prank(ADMIN);
+        vm.expectRevert("invalid pool");
+        staking.resetPoolConvertor(0, lcdot2ldotConvertor);
+    }
+
+    function test_resetPoolConvertor_revertNotConvertedPool() public {
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+        vm.expectRevert("pool must be already converted");
+        staking.resetPoolConvertor(0, lcdot2ldotConvertor);
+    }
+
+    function test_resetPoolConvertor_revertConvertorNotMatch() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+
+        vm.prank(ADMIN);
+        staking.addPool(lcdot);
+
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 200_000 ether);
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
+
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        vm.startPrank(ADMIN);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+
+        vm.expectRevert("convertor is not matched");
+        staking.resetPoolConvertor(0, dot2ldotConvertor);
+
+        vm.expectRevert("convertor is not matched");
+        staking.resetPoolConvertor(0, lcdot2wtdotConvertor);
+    }
+
+    function test_resetPoolConvertor_works() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+
+        vm.prank(ADMIN);
+        staking.addPool(lcdot);
+
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 200_000 ether);
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
+
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+
+        // mock pool convertor is not set
+        uint256 poolId = 0;
+        uint256 slot = stdstore.target(address(staking)).sig("poolConvertors(uint256)").with_key(poolId).depth(0).find();
+        bytes32 loc = bytes32(slot);
+        bytes32 zero = bytes32(abi.encode(address(0)));
+        vm.store(address(staking), loc, zero);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+
+        vm.prank(ADMIN);
+        staking.resetPoolConvertor(0, lcdot2ldotConvertor);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+    }
+
     function test_stake_revertZeroAmount() public {
         vm.startPrank(ADMIN);
         staking.addPool(lcdot);
@@ -81,6 +562,42 @@ contract UpgradeableStakingLSTV2Test is Test {
     function test_stake_revertInvalidPool() public {
         vm.expectRevert("invalid pool");
         staking.stake(0, 100);
+    }
+
+    function test_stake_revertPoolConvertorNotSet() public {
+        lcdot.transfer(ALICE, 1_000_000 ether);
+        vm.startPrank(ADMIN);
+        staking.addPool(lcdot);
+
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 200_000 ether);
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
+
+        dot.transfer(address(liquidCrowdloan), 1_000_000 ether);
+        assertEq(liquidCrowdloan.getRedeemCurrency(), address(dot));
+        assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
+        assertEq(homa.getExchangeRate(), 1e18 / 8);
+
+        vm.prank(ADMIN);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
+        assertEq(address(staking.convertInfos(0).convertedShareType), address(ldot));
+        assertEq(staking.convertInfos(0).convertedExchangeRate, 8e18);
+        assertEq(address(staking.poolConvertors(0)), address(lcdot2ldotConvertor));
+
+        // mock pool convertor is not set
+        uint256 poolId = 0;
+        uint256 slot = stdstore.target(address(staking)).sig("poolConvertors(uint256)").with_key(poolId).depth(0).find();
+        bytes32 loc = bytes32(slot);
+        bytes32 zero = bytes32(abi.encode(address(0)));
+        vm.store(address(staking), loc, zero);
+        assertEq(address(staking.poolConvertors(0)), address(0));
+
+        vm.startPrank(ALICE);
+        lcdot.approve(address(staking), 200_000 ether);
+        vm.expectRevert("pool convertor is not set");
+        staking.stake(0, 200_000 ether);
+        vm.stopPrank();
     }
 
     function test_stake_works() public {
@@ -136,7 +653,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         vm.prank(ADMIN);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(0, lcdot, ldot, 200_000 ether, 1_600_000 ether);
-        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
         assertEq(staking.totalShares(0), 200_000 ether);
         assertEq(staking.shares(0, ALICE), 200_000 ether);
         assertEq(lcdot.balanceOf(address(staking)), 0);
@@ -219,7 +736,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
         vm.startPrank(ALICE);
         lcdot.approve(address(staking), 100_000 ether);
-        vm.expectRevert("unsupported convert");
+        vm.expectRevert("LCDOT2LDOTConvertor: unsupported convert");
         staking.stake(0, 100_000 ether);
         vm.stopPrank();
         vm.revertTo(snapId2);
@@ -273,10 +790,10 @@ contract UpgradeableStakingLSTV2Test is Test {
         vm.startPrank(ADMIN);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(0, lcdot, IERC20(address(wtdot)), 100_000 ether, 90_000 ether);
-        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2WTDOT);
+        staking.convertLSTPool(0, lcdot2wtdotConvertor);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(1, dot, IERC20(address(wtdot)), 100_000 ether, 90_000 ether);
-        staking.convertLSTPool(1, UpgradeableStakingLST.ConvertType.DOT2WTDOT);
+        staking.convertLSTPool(1, dot2wtdotConvertor);
         vm.stopPrank();
         assertEq(staking.totalShares(0), 100_000 ether);
         assertEq(staking.shares(0, ALICE), 100_000 ether);
@@ -445,7 +962,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         vm.prank(ADMIN);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(0, lcdot, ldot, 150_000 ether, 1_200_000 ether);
-        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
         assertEq(staking.totalShares(0), 150_000 ether);
         assertEq(staking.shares(0, ALICE), 150_000 ether);
         assertEq(lcdot.balanceOf(address(staking)), 0);
@@ -557,7 +1074,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         vm.prank(ADMIN);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(0, dot, IERC20(address(wtdot)), 1_000_000 ether, 900_000 ether);
-        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.DOT2WTDOT);
+        staking.convertLSTPool(0, dot2wtdotConvertor);
         assertEq(address(staking.convertInfos(0).convertedShareType), address(wtdot));
         assertEq(staking.convertInfos(0).convertedExchangeRate, 9e17);
         assertEq(staking.totalShares(0), 1_000_000 ether);
@@ -675,7 +1192,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         vm.prank(ADMIN);
         vm.expectEmit(false, false, false, true);
         emit LSTPoolConverted(0, lcdot, ldot, 200_000 ether, 1_600_000 ether);
-        staking.convertLSTPool(0, UpgradeableStakingLST.ConvertType.LCDOT2LDOT);
+        staking.convertLSTPool(0, lcdot2ldotConvertor);
         assertEq(staking.totalShares(0), 200_000 ether);
         assertEq(staking.shares(0, BOB), 200_000 ether);
         assertEq(lcdot.balanceOf(address(staking)), 0);
@@ -758,7 +1275,7 @@ contract UpgradeableStakingLSTV2Test is Test {
         assertEq(liquidCrowdloan.redeemExchangeRate(), 1e18);
         vm.startPrank(ALICE);
         lcdot.approve(address(staking), 100_000 ether);
-        vm.expectRevert("unsupported convert");
+        vm.expectRevert("LCDOT2LDOTConvertor: unsupported convert");
         staking.stakeTo(0, 100_000 ether, BOB);
         vm.stopPrank();
         vm.revertTo(snapId2);

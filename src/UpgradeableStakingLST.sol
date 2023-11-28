@@ -74,9 +74,9 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
     /// @notice The threshold amount of DOT to mint by HOMA.
     uint256 public constant HOMA_MINT_THRESHOLD = 50_000_000_000; // 5 DOT
 
-    /// @dev The LST convert info info of pool.
+    /// @notice The LST convert info info of pool.
     /// (poolId => convertInfo)
-    mapping(uint256 => ConvertInfo) private _convertInfos;
+    mapping(uint256 => ConvertInfo) internal _convertInfos;
 
     /// @dev overwrite initialize() to mute initializer of UpgradeableStakingCommon
     function initialize() public override {}
@@ -271,7 +271,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
     /// @notice convert the share token of ‘poolId’ pool to LST token by `convertType`.
     /// @param poolId The index of staking pool.
     /// @param convertType The convert type.
-    function convertLSTPool(uint256 poolId, ConvertType convertType) external onlyOwner whenNotPaused {
+    function convertLSTPool(uint256 poolId, ConvertType convertType) external virtual onlyOwner whenNotPaused {
         IERC20 shareType = shareTypes(poolId);
         ConvertInfo storage convert = _convertInfos[poolId];
         require(address(convert.convertedShareType) == address(0), "already converted");
