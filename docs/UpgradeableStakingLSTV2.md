@@ -221,7 +221,7 @@ Claim all rewards from staking pool.
 ### convertInfos
 
 ```solidity
-function convertInfos(uint256 poolId) external view returns (struct UpgradeableStakingLSTV2.ConvertInfo)
+function convertInfos(uint256 poolId) external view returns (struct UpgradeableStakingLST.ConvertInfo)
 ```
 
 Get the LST convertion info of `poolId` pool.
@@ -238,7 +238,24 @@ Get the LST convertion info of `poolId` pool.
 
 | Name | Type | Description |
 |---|---|---|
-| _0 | UpgradeableStakingLSTV2.ConvertInfo | Returns convert info. |
+| _0 | UpgradeableStakingLST.ConvertInfo | Returns convert info. |
+
+### convertLSTPool
+
+```solidity
+function convertLSTPool(uint256 poolId, enum UpgradeableStakingLST.ConvertType convertType) external nonpayable
+```
+
+convert the share token of ‘poolId’ pool to LST token by `convertType`.
+
+*override to depracate it.*
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| poolId | uint256 | The index of staking pool. |
+| convertType | enum UpgradeableStakingLST.ConvertType | The convert type. |
 
 ### convertLSTPool
 
@@ -904,11 +921,11 @@ The pool&#39;s share token is converted into its LST token.
 
 | Name | Type | Description |
 |---|---|---|
-| poolId  | uint256 | The pool id. |
-| beforeShareType  | contract IERC20 | The share token before converted. |
-| afterShareType  | contract IERC20 | The share token after converted. |
-| beforeShareTokenAmount  | uint256 | The share token amount before converted. |
-| afterShareTokenAmount  | uint256 | The share token amount after converted. |
+| poolId  | uint256 | undefined |
+| beforeShareType  | contract IERC20 | undefined |
+| afterShareType  | contract IERC20 | undefined |
+| beforeShareTokenAmount  | uint256 | undefined |
+| afterShareTokenAmount  | uint256 | undefined |
 
 ### NewPool
 

@@ -75,3 +75,15 @@ interface IStaking {
     /// @return Returns (success).
     function exit(uint256 poolId) external returns (bool);
 }
+
+/// @title IStakingTo Interface
+/// @author Acala Developers
+/// @notice You can use this integrate Acala LST staking into your contract.
+interface IStakingTo is IStaking {
+    /// @notice Stake share to other.
+    /// @param poolId The index of staking pool.
+    /// @param amount The share amount to stake.
+    /// @param receiver The share receiver.
+    /// @return Returns (success).
+    function stakeTo(uint256 poolId, uint256 amount, address receiver) external returns (bool);
+}
