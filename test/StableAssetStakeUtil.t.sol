@@ -87,7 +87,9 @@ contract StableAssetStakeUtilTest is Test {
 
         util = new StableAssetStakeUtil(
             address(staking),
-            address(stableAsset)
+            address(stableAsset),
+            address(homa),
+            address(ldot)
         );
     }
 
@@ -165,7 +167,7 @@ contract StableAssetStakeUtilTest is Test {
         util.mintAndStake(1, amounts, tusd, wtusd, 0);
     }
 
-    function test_mintAndStake_works() public {
+    function test_mintAndStake_TUSD() public {
         usdcet.transfer(ALICE, 1_000_000 ether);
         usdt.transfer(ALICE, 1_000_000 ether);
         vm.prank(ADMIN);
@@ -179,6 +181,7 @@ contract StableAssetStakeUtilTest is Test {
         assertEq(wtusd.balanceOf(address(staking)), 0);
         assertEq(tusd.balanceOf(address(wtusd)), 0);
         assertEq(IERC20(address(wtusd)).totalSupply(), 0);
+        assertEq(staking.shares(0, ALICE), 0);
 
         // ALICE mint tUSD and stake to WTUSD pool by StableAssetStakeUtil.mintAndStake
         vm.startPrank(ALICE);
@@ -199,6 +202,7 @@ contract StableAssetStakeUtilTest is Test {
         assertEq(wtusd.balanceOf(address(staking)), 2_000_000 ether);
         assertEq(tusd.balanceOf(address(wtusd)), 2_000_000 ether);
         assertEq(IERC20(address(wtusd)).totalSupply(), 2_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 2_000_000 ether);
 
         // mock the hold TUSD increased of WrappedTUSD
         tusd.transfer(address(wtusd), 500_000 ether);
@@ -211,6 +215,7 @@ contract StableAssetStakeUtilTest is Test {
         assertEq(usdt.balanceOf(BOB), 1_000_000 ether);
         assertEq(tusd.balanceOf(BOB), 0);
         assertEq(wtusd.balanceOf(BOB), 0);
+        assertEq(staking.shares(0, BOB), 0);
 
         // BOB mint tUSD and stake to WTUSD pool by StableAssetStakeUtil.mintAndStake
         vm.startPrank(BOB);
@@ -231,5 +236,97 @@ contract StableAssetStakeUtilTest is Test {
         assertEq(wtusd.balanceOf(address(staking)), 3_600_000 ether);
         assertEq(tusd.balanceOf(address(wtusd)), 4_500_000 ether);
         assertEq(IERC20(address(wtusd)).totalSupply(), 3_600_000 ether);
+        assertEq(staking.shares(0, BOB), 1_600_000 ether);
+    }
+
+    function test_mintAndStake_TDOT() public {
+        dot.transfer(ALICE, 1_000_000 ether);
+        ldot.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(IERC20(address(wtdot)));
+
+        assertEq(dot.balanceOf(ALICE), 1_000_000 ether);
+        assertEq(ldot.balanceOf(ALICE), 1_000_000 ether);
+        assertEq(tdot.balanceOf(ALICE), 0);
+        assertEq(wtdot.balanceOf(ALICE), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 0);
+        assertEq(tdot.balanceOf(address(wtdot)), 0);
+        assertEq(IERC20(address(wtdot)).totalSupply(), 0);
+        assertEq(staking.shares(0, ALICE), 0);
+
+        // ALICE mint TDOT and stake to WTDOT pool by StableAssetStakeUtil.mintAndStake
+        vm.startPrank(ALICE);
+        dot.approve(address(util), 1_000_000 ether);
+        ldot.approve(address(util), 1_000_000 ether);
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = 1_000_000 ether;
+        amounts[1] = 1_000_000 ether;
+        emit Stake(ALICE, 0, 2_000_000 ether);
+        util.mintAndStake(0, amounts, tdot, IWrappedStableAssetShare(address(wtdot)), 0);
+        vm.stopPrank();
+
+        assertEq(dot.balanceOf(ALICE), 0);
+        assertEq(ldot.balanceOf(ALICE), 0);
+        assertEq(tdot.balanceOf(ALICE), 0);
+        assertEq(wtdot.balanceOf(ALICE), 0);
+        assertEq(tdot.balanceOf(address(staking)), 0);
+        assertEq(wtdot.balanceOf(address(staking)), 1_100_000 ether);
+        assertEq(tdot.balanceOf(address(wtdot)), 1_100_000 ether);
+        assertEq(IERC20(address(wtdot)).totalSupply(), 1_100_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_100_000 ether);
+    }
+
+    function test_wrapAndStake_TUSD() public {
+        tusd.transfer(ALICE, 1_000_000 ether);
+        vm.prank(ADMIN);
+        staking.addPool(IERC20(address(wtusd)));
+
+        assertEq(tusd.balanceOf(ALICE), 1_000_000 ether);
+        assertEq(wtusd.balanceOf(ALICE), 0);
+        assertEq(tusd.balanceOf(address(staking)), 0);
+        assertEq(wtusd.balanceOf(address(staking)), 0);
+        assertEq(tusd.balanceOf(address(wtusd)), 0);
+        assertEq(IERC20(address(wtusd)).totalSupply(), 0);
+
+        // ALICE wrap TUSD and stake to WTUSD pool by StableAssetStakeUtil.wrapAndStake
+        vm.startPrank(ALICE);
+        tusd.approve(address(util), 1_000_000 ether);
+        emit Stake(ALICE, 0, 1_000_000 ether);
+        util.wrapAndStake(tusd, 1_000_000 ether, wtusd, 0);
+        vm.stopPrank();
+
+        assertEq(tusd.balanceOf(ALICE), 0);
+        assertEq(wtusd.balanceOf(ALICE), 0);
+        assertEq(tusd.balanceOf(address(staking)), 0);
+        assertEq(wtusd.balanceOf(address(staking)), 1_000_000 ether);
+        assertEq(tusd.balanceOf(address(wtusd)), 1_000_000 ether);
+        assertEq(IERC20(address(wtusd)).totalSupply(), 1_000_000 ether);
+        assertEq(staking.shares(0, ALICE), 1_000_000 ether);
+
+        // mock the hold TUSD increased of WrappedTUSD
+        tusd.transfer(address(wtusd), 250_000 ether);
+        assertEq(tusd.balanceOf(address(wtusd)), 1_250_000 ether);
+        assertEq(IERC20(address(wtusd)).totalSupply(), 1_000_000 ether);
+
+        tusd.transfer(BOB, 1_000_000 ether);
+        assertEq(tusd.balanceOf(BOB), 1_000_000 ether);
+        assertEq(wtusd.balanceOf(ALICE), 0);
+        assertEq(staking.shares(0, BOB), 0);
+
+        // BOB wrap TUSD and stake to WTUSD pool by StableAssetStakeUtil.wrapAndStake
+        vm.startPrank(BOB);
+        tusd.approve(address(util), 1_000_000 ether);
+        emit Stake(BOB, 0, 800_000 ether);
+        util.wrapAndStake(tusd, 1_000_000 ether, wtusd, 0);
+        vm.stopPrank();
+
+        assertEq(tusd.balanceOf(BOB), 0);
+        assertEq(wtusd.balanceOf(BOB), 0);
+        assertEq(tusd.balanceOf(address(staking)), 0);
+        assertEq(wtusd.balanceOf(address(staking)), 1_800_000 ether);
+        assertEq(tusd.balanceOf(address(wtusd)), 2_250_000 ether);
+        assertEq(IERC20(address(wtusd)).totalSupply(), 1_800_000 ether);
+        assertEq(staking.shares(0, BOB), 800_000 ether);
     }
 }
