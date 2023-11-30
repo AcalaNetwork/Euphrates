@@ -5,6 +5,7 @@ import "@openzeppelin-contracts/utils/math/SafeMath.sol";
 import "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 import "@AcalaNetwork/predeploy-contracts/stable-asset/IStableAsset.sol";
+import "@AcalaNetwork/predeploy-contracts/homa/IHoma.sol";
 import "./IWrappedStableAssetShare.sol";
 import "./IStaking.sol";
 
@@ -24,12 +25,22 @@ contract StableAssetStakeUtil {
     /// @notice The StableAsset predeploy contract address.
     IStableAsset public immutable stableAsset;
 
+    /// @notice The Homa predeploy contract address.
+    IHoma public immutable homa;
+
+    /// @notice The LDOT token address.
+    address public immutable ldot;
+
     /// @notice Deploys StableAssetStakeUtil contract.
     /// @param euphratesAddr The contract address of Euphrates.
-    /// @param stableAssetAddress The contract address of StableAsset predeploy contract.
-    constructor(address euphratesAddr, address stableAssetAddress) {
+    /// @param stableAssetAddr The contract address of StableAsset predeploy contract.
+    /// @param homaAddr The contract address of Homa predeploy contract.
+    /// @param ldotAddr The LDOT token address.
+    constructor(address euphratesAddr, address stableAssetAddr, address homaAddr, address ldotAddr) {
         euphrates = IStakingTo(euphratesAddr);
-        stableAsset = IStableAsset(stableAssetAddress);
+        stableAsset = IStableAsset(stableAssetAddr);
+        homa = IHoma(homaAddr);
+        ldot = ldotAddr;
     }
 
     /// @notice Mint StalbeAsset LP token and stake it's wrapped token to Euphrates pool.
@@ -39,7 +50,6 @@ contract StableAssetStakeUtil {
     /// @param wrappedShareToken The wrapper for StableAsset LP token.
     /// @param poolId The if of Euphrates pool.
     /// @return Returns (success).
-    /// @dev it's not compitable with StableAsset TDOT pool becuase of the assets amount of LDOT is rebased.
     function mintAndStake(
         uint32 stableAssetPoolId,
         uint256[] memory assetsAmount,
@@ -51,18 +61,22 @@ contract StableAssetStakeUtil {
         (bool valid, address[] memory assets) = stableAsset.getStableAssetPoolTokens(stableAssetPoolId);
         require(valid && assetsAmount.length == assets.length, "StableAssetStakeUtil: invalid stable asset pool");
 
+        uint256[] memory paramAmounts = assetsAmount;
         // transfer assets from msg.sender
         for (uint256 i = 0; i < assets.length; i++) {
             if (assetsAmount[i] != 0) {
                 IERC20(assets[i]).safeTransferFrom(msg.sender, address(this), assetsAmount[i]);
             }
+            // convert LDOT amount to rebased LDOT amount as the param
+            // NOTE: the precision of Homa.getExchangeRate is 1e18
+            if (assets[i] == ldot) {
+                paramAmounts[i] = assetsAmount[i].mul(homa.getExchangeRate()).div(1e18);
+            }
         }
 
         // StableAsset mint, no need to approve assets to stable-asset
         uint256 beforeStableAssetShareAmount = IERC20(stableAssetShareToken).balanceOf(address(this));
-
-        // NOTE: use assetsAmount as the params, it cannot used to StableAsset TDOT pool because TDOT pool mint params amount is rebased!
-        bool success = stableAsset.stableAssetMint(stableAssetPoolId, assetsAmount, 0);
+        bool success = stableAsset.stableAssetMint(stableAssetPoolId, paramAmounts, 0);
         require(success, "StableAssetStakeUtil: stable-asset mint failed");
         uint256 afterStableAssetShareAmount = IERC20(stableAssetShareToken).balanceOf(address(this));
         uint256 mintedShareAmount = afterStableAssetShareAmount.sub(beforeStableAssetShareAmount);
@@ -71,6 +85,29 @@ contract StableAssetStakeUtil {
         // wrap share token
         stableAssetShareToken.safeApprove(address(wrappedShareToken), mintedShareAmount);
         uint256 wrappedShareAmount = wrappedShareToken.deposit(mintedShareAmount);
+        require(wrappedShareAmount != 0, "StableAssetStakeUtil: zero wrapped share amount is not allowed");
+
+        // stake wrapped share token to Euphrates pool
+        IERC20(address(wrappedShareToken)).safeApprove(address(euphrates), wrappedShareAmount);
+        return euphrates.stakeTo(poolId, wrappedShareAmount, msg.sender);
+    }
+
+    /// @notice Wrap StalbeAsset LP token and stake to Euphrates pool.
+    /// @param stableAssetShareToken The LP token of StableAsset pool.
+    /// @param amount The amount of LP token.
+    /// @param wrappedShareToken The wrapper for StableAsset LP token.
+    /// @param poolId The if of Euphrates pool.
+    /// @return Returns (success).
+    function wrapAndStake(
+        IERC20 stableAssetShareToken,
+        uint256 amount,
+        IWrappedStableAssetShare wrappedShareToken,
+        uint256 poolId
+    ) public returns (bool) {
+        require(amount != 0, "StableAssetStakeUtil: zero share amount is not allowed");
+        stableAssetShareToken.safeTransferFrom(msg.sender, address(this), amount);
+        stableAssetShareToken.safeApprove(address(wrappedShareToken), amount);
+        uint256 wrappedShareAmount = wrappedShareToken.deposit(amount);
         require(wrappedShareAmount != 0, "StableAssetStakeUtil: zero wrapped share amount is not allowed");
 
         // stake wrapped share token to Euphrates pool

@@ -27,6 +27,40 @@ The token address of Euphrates.
 |---|---|---|
 | _0 | contract IStakingTo | undefined |
 
+### homa
+
+```solidity
+function homa() external view returns (contract IHoma)
+```
+
+The Homa predeploy contract address.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract IHoma | undefined |
+
+### ldot
+
+```solidity
+function ldot() external view returns (address)
+```
+
+The LDOT token address.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined |
+
 ### mintAndStake
 
 ```solidity
@@ -35,7 +69,7 @@ function mintAndStake(uint32 stableAssetPoolId, uint256[] assetsAmount, contract
 
 Mint StalbeAsset LP token and stake it&#39;s wrapped token to Euphrates pool.
 
-*it&#39;s not compitable with StableAsset TDOT pool becuase of the assets amount of LDOT is rebased.*
+
 
 #### Parameters
 
@@ -69,6 +103,31 @@ The StableAsset predeploy contract address.
 | Name | Type | Description |
 |---|---|---|
 | _0 | contract IStableAsset | undefined |
+
+### wrapAndStake
+
+```solidity
+function wrapAndStake(contract IERC20 stableAssetShareToken, uint256 amount, contract IWrappedStableAssetShare wrappedShareToken, uint256 poolId) external nonpayable returns (bool)
+```
+
+Wrap StalbeAsset LP token and stake to Euphrates pool.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| stableAssetShareToken | contract IERC20 | The LP token of StableAsset pool. |
+| amount | uint256 | The amount of LP token. |
+| wrappedShareToken | contract IWrappedStableAssetShare | The wrapper for StableAsset LP token. |
+| poolId | uint256 | The if of Euphrates pool. |
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | bool | Returns (success). |
 
 
 
