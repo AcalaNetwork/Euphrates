@@ -96,7 +96,7 @@ contract UpgradeableStakingLSTV2 is UpgradeableStakingLST, IStakingTo {
         ConvertInfo memory convertInfo = convertInfos(poolId);
         if (address(convertInfo.convertedShareType) != address(0)) {
             ILSTConvert convertor = poolConvertors(poolId);
-            require(address(poolConvertors(poolId)) != address(0), "pool convertor is not set");
+            require(address(convertor) != address(0), "pool convertor is not set");
 
             // if pool has converted, transfer the before share token to this firstly
             shareType.safeTransferFrom(msg.sender, address(this), amount);

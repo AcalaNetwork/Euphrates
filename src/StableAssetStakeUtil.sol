@@ -76,6 +76,7 @@ contract StableAssetStakeUtil {
 
         // StableAsset mint, no need to approve assets to stable-asset
         uint256 beforeStableAssetShareAmount = IERC20(stableAssetShareToken).balanceOf(address(this));
+        // NOTE: allow max slippage here
         bool success = stableAsset.stableAssetMint(stableAssetPoolId, paramAmounts, 0);
         require(success, "StableAssetStakeUtil: stable-asset mint failed");
         uint256 afterStableAssetShareAmount = IERC20(stableAssetShareToken).balanceOf(address(this));
