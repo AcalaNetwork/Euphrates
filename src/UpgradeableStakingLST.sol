@@ -159,7 +159,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
         // asset index of LDOT: 1
         // here deadcode these params
         (bool valid, address[] memory assets) = IStableAsset(STABLE_ASSET).getStableAssetPoolTokens(0);
-        require(valid && assets[0] == DOT, "invalid stable asset pool");
+        require(valid && assets[0] == DOT && assets[1] == LDOT, "invalid stable asset pool");
         uint256[] memory paramAmounts = new uint256[](2);
 
         if (amount.div(2) >= HOMA_MINT_THRESHOLD) {
@@ -176,6 +176,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
         }
 
         uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        // NOTE: allow max slippage here
         bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
         require(success, "stable-asset mint failed");
 
@@ -206,6 +207,7 @@ contract UpgradeableStakingLST is UpgradeableStakingCommon {
         paramAmounts[1] = ldotParamAmount;
 
         uint256 beforeTdotAmount = IERC20(TDOT).balanceOf(address(this));
+        // NOTE: allow max slippage here
         bool success = IStableAsset(STABLE_ASSET).stableAssetMint(0, paramAmounts, 0);
         require(success, "stable-asset mint failed");
 

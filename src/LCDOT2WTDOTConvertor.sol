@@ -91,68 +91,44 @@ contract LCDOT2WTDOTConvertor is ILSTConvert, ReentrancyGuard {
     }
 
     /// @inheritdoc ILSTConvert
-    function convertTo(
-        uint256 inputAmount,
-        address receiver
-    ) external override returns (uint256) {
-        require(
-            receiver != address(0),
-            "LCDOT2WTDOTConvertor: zero address not allowed"
-        );
+    function convertTo(uint256 inputAmount, address receiver) external override returns (uint256) {
+        require(receiver != address(0), "LCDOT2WTDOTConvertor: zero address not allowed");
         return _convert(inputAmount, receiver);
     }
 
     /// @notice Convert `inputAmount` token and send output token to `receiver`.
     /// @param inputAmount The input token amount to convert.
     /// @param receiver The receiver for the converted output token.
-    function _convert(
-        uint256 inputAmount,
-        address receiver
-    ) internal returns (uint256 outputAmount) {
+    function _convert(uint256 inputAmount, address receiver) internal returns (uint256 outputAmount) {
         require(inputAmount != 0, "LCDOT2WTDOTConvertor: invalid input amount");
         IERC20(lcdot).safeTransferFrom(msg.sender, address(this), inputAmount);
 
-        address redeemCurrency = ILiquidCrowdloan(liquidCrowdloan)
-            .getRedeemCurrency();
-        uint256 redeemedAmount = ILiquidCrowdloan(liquidCrowdloan).redeem(
-            inputAmount
-        );
+        address redeemCurrency = ILiquidCrowdloan(liquidCrowdloan).getRedeemCurrency();
+        uint256 redeemedAmount = ILiquidCrowdloan(liquidCrowdloan).redeem(inputAmount);
 
         uint256 tdotAmount;
         if (redeemCurrency == ldot || redeemCurrency == dot) {
-            (bool valid, address[] memory assets) = IStableAsset(stableAsset)
-                .getStableAssetPoolTokens(0);
-            require(
-                valid && assets[0] == dot && assets[1] == ldot,
-                "LCDOT2WTDOTConvertor: invalid stable asset pool"
-            );
+            (bool valid, address[] memory assets) = IStableAsset(stableAsset).getStableAssetPoolTokens(0);
+            require(valid && assets[0] == dot && assets[1] == ldot, "LCDOT2WTDOTConvertor: invalid stable asset pool");
             uint256[] memory paramAmounts = new uint256[](2);
 
             if (redeemCurrency == ldot) {
                 // convert LDOT amount to rebased LDOT amount as the param
                 // NOTE: the precision of Homa.getExchangeRate is 1e18
-                uint256 ldotParamAmount = redeemedAmount
-                    .mul(IHoma(homa).getExchangeRate())
-                    .div(1e18);
+                uint256 ldotParamAmount = redeemedAmount.mul(IHoma(homa).getExchangeRate()).div(1e18);
                 paramAmounts[0] = 0;
                 paramAmounts[1] = ldotParamAmount;
             } else {
                 if (redeemedAmount.div(2) >= HOMA_MINT_THRESHOLD) {
-                    uint256 beforeLdotAmount = IERC20(ldot).balanceOf(
-                        address(this)
-                    );
+                    uint256 beforeLdotAmount = IERC20(ldot).balanceOf(address(this));
                     bool suc = IHoma(homa).mint(redeemedAmount.div(2));
                     require(suc, "LCDOT2WTDOTConvertor: homa mint failed");
-                    uint256 afterLdotAmount = IERC20(ldot).balanceOf(
-                        address(this)
-                    );
+                    uint256 afterLdotAmount = IERC20(ldot).balanceOf(address(this));
                     uint256 ldotAmount = afterLdotAmount.sub(beforeLdotAmount);
 
                     // convert LDOT amount to rebased LDOT amount as the param
                     // NOTE: the precision of Homa.getExchangeRate is 1e18
-                    uint256 ldotParamAmount = ldotAmount
-                        .mul(IHoma(homa).getExchangeRate())
-                        .div(1e18);
+                    uint256 ldotParamAmount = ldotAmount.mul(IHoma(homa).getExchangeRate()).div(1e18);
                     paramAmounts[0] = redeemedAmount.sub(redeemedAmount.div(2));
                     paramAmounts[1] = ldotParamAmount;
                 } else {
@@ -162,11 +138,8 @@ contract LCDOT2WTDOTConvertor is ILSTConvert, ReentrancyGuard {
             }
 
             uint256 beforeTdotAmount = IERC20(tdot).balanceOf(address(this));
-            bool success = IStableAsset(stableAsset).stableAssetMint(
-                0,
-                paramAmounts,
-                0
-            );
+            // NOTE: allow max slippage here
+            bool success = IStableAsset(stableAsset).stableAssetMint(0, paramAmounts, 0);
             require(success, "LCDOT2WTDOTConvertor: stable-asset mint failed");
             uint256 afterTdotAmount = IERC20(tdot).balanceOf(address(this));
             tdotAmount = afterTdotAmount.sub(beforeTdotAmount);
