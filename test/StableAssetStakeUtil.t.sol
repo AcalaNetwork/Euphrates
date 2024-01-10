@@ -16,16 +16,7 @@ import "./MockToken.sol";
 contract StableAssetStakeUtilTest is Test {
     using stdStorage for StdStorage;
 
-    event LSTPoolConverted(
-        uint256 poolId,
-        IERC20 beforeShareType,
-        IERC20 afterShareType,
-        uint256 beforeShareTokenAmount,
-        uint256 afterShareTokenAmount
-    );
-    event Unstake(address indexed account, uint256 poolId, uint256 amount);
     event Stake(address indexed account, uint256 poolId, uint256 amount);
-    event ClaimReward(address indexed account, uint256 poolId, IERC20 indexed rewardType, uint256 amount);
 
     UpgradeableStakingLSTV2 public staking;
     MockHoma public homa;
@@ -51,7 +42,7 @@ contract StableAssetStakeUtilTest is Test {
         ldot = IERC20(address(new MockToken("Acala LDOT", "LDOT", 1_000_000_000 ether)));
         tdot = IERC20(address(new MockToken("Taiga tDOT", "tDOT", 1_000_000_000 ether)));
         usdcet = IERC20(address(new MockToken("Wormhole USDCet", "USDCet", 1_000_000_000 ether)));
-        usdt = IERC20(address(new MockToken("Aasset Hub USDT", "USDT", 1_000_000_000 ether)));
+        usdt = IERC20(address(new MockToken("Asset Hub USDT", "USDT", 1_000_000_000 ether)));
         tusd = IERC20(address(new MockToken("Taiga tUSD", "tUSD", 1_000_000_000 ether)));
 
         homa = new MockHoma(address(dot), address(ldot));
