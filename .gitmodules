@@ -13,3 +13,6 @@
 [submodule "lib/solmate"]
 	path = lib/solmate
 	url = https://github.com/transmissions11/solmate
+[submodule "lib/starlay-protocol"]
+	path = lib/starlay-protocol
+	url = https://github.com/AcalaNetwork/starlay-protocol
