@@ -97,7 +97,7 @@ contract StableAssetStakeUtil {
     /// @param stableAssetShareToken The LP token of StableAsset pool.
     /// @param amount The amount of LP token.
     /// @param wrappedShareToken The wrapper for StableAsset LP token.
-    /// @param poolId The if of Euphrates pool.
+    /// @param poolId The id of Euphrates pool.
     /// @return Returns (success).
     function wrapAndStake(
         IERC20 stableAssetShareToken,

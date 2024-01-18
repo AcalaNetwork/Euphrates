@@ -3,3 +3,4 @@
 @AcalaNetwork/predeploy-contracts/=lib/predeploy-contracts/contracts/
 forge-std/=lib/forge-std/src/
 solmate/=lib/solmate/src/
+@starlay-protocol/=lib/starlay-protocol/contracts/
