@@ -121,7 +121,7 @@ Wrap StalbeAsset LP token and stake to Euphrates pool.
 | stableAssetShareToken | contract IERC20 | The LP token of StableAsset pool. |
 | amount | uint256 | The amount of LP token. |
 | wrappedShareToken | contract IWrappedStableAssetShare | The wrapper for StableAsset LP token. |
-| poolId | uint256 | The if of Euphrates pool. |
+| poolId | uint256 | The id of Euphrates pool. |
 
 #### Returns
 
