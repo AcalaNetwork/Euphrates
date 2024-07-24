@@ -125,7 +125,7 @@ contract MockDEX is IDEX {
                 MockToken(TOKEN_0).forceTransfer(msg.sender, address(this), maxAmountA);
                 MockToken(TOKEN_1).forceTransfer(msg.sender, address(this), maxAmountB);
                 pool0 = pool0.add(maxAmountA);
-                pool1 = pool0.add(maxAmountB);
+                pool1 = pool1.add(maxAmountB);
                 MockToken(LP_TOKEN).mint(msg.sender, maxAmountA);
             } else {
                 uint256 actualA;
@@ -148,7 +148,7 @@ contract MockDEX is IDEX {
                 MockToken(TOKEN_0).forceTransfer(msg.sender, address(this), actualA);
                 MockToken(TOKEN_1).forceTransfer(msg.sender, address(this), actualB);
                 pool0 = pool0.add(actualA);
-                pool1 = pool0.add(actualB);
+                pool1 = pool1.add(actualB);
                 MockToken(LP_TOKEN).mint(msg.sender, shareIncrement);
             }
         } else if (tokenB == TOKEN_0 && tokenA == TOKEN_1) {
@@ -157,7 +157,7 @@ contract MockDEX is IDEX {
                 MockToken(TOKEN_0).forceTransfer(msg.sender, address(this), maxAmountB);
                 MockToken(TOKEN_1).forceTransfer(msg.sender, address(this), maxAmountA);
                 pool0 = pool0.add(maxAmountB);
-                pool1 = pool0.add(maxAmountA);
+                pool1 = pool1.add(maxAmountA);
                 MockToken(LP_TOKEN).mint(msg.sender, maxAmountB);
             } else {
                 uint256 actualA;
@@ -180,7 +180,7 @@ contract MockDEX is IDEX {
                 MockToken(TOKEN_0).forceTransfer(msg.sender, address(this), actualB);
                 MockToken(TOKEN_1).forceTransfer(msg.sender, address(this), actualA);
                 pool0 = pool0.add(actualB);
-                pool1 = pool0.add(actualA);
+                pool1 = pool1.add(actualA);
                 MockToken(LP_TOKEN).mint(msg.sender, shareIncrement);
             }
         } else {
